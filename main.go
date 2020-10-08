@@ -10,6 +10,7 @@ import (
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
 
+	"lang.pkg/cmd"
 	"lang.pkg/router"
 )
 
@@ -17,6 +18,8 @@ func init() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
+
+	cmd.Bootstrap()
 }
 
 func main() {

@@ -9,37 +9,32 @@ import (
 
 // CommandStruct : Command Type Struct
 type CommandStruct struct {
-	match string
-	info  string
-	help  string
+	Match string
+	Info  string
+	Help  string
 
-	run func(s *discordgo.Session, m *discordgo.MessageCreate)
+	Run func(s *discordgo.Session, m *discordgo.MessageCreate)
 }
 
-var commands map[string]CommandStruct
+var commands map[string]*CommandStruct
 
 // Run : Run Command
 func Run(s *discordgo.Session, m *discordgo.MessageCreate) {
-	key := strings.Split(m.Content, " ")[0]
+	match := strings.Split(strings.TrimPrefix(m.Content, "!"), " ")[0]
 
-	if _, ok := commands[key]; !ok {
+	if _, ok := commands[match]; !ok {
 		return
 	}
 
-	cmd := commands[key]
-	cmd.run(s, m)
+	cmd := commands[match]
+	cmd.Run(s, m)
 }
 
-// Bootstrap : Registe, Generate Commands
-// func Bootstrap() {
-
-// }
-
 // Add : Add Command
-func Add(key string, cmd CommandStruct) {
-	if _, ok := commands[key]; ok {
-		log.WithField("key", key).Error("Exits command key")
+func Add(cmd *CommandStruct) {
+	if _, ok := commands[cmd.Match]; ok {
+		log.WithField("match", cmd.Match).Error("Exits command match")
 	}
 
-	commands[key] = cmd
+	commands[cmd.Match] = cmd
 }
