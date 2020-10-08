@@ -9,7 +9,7 @@ func user() {
 	router.Add(&router.CommandStruct{
 		Match: "signup",
 		Help:  "!signup",
-		Info:  "lang.pkg 에 계정을 생성하는 명령어 입니다.",
+		Info:  "lang.pkg 계정을 생성하는 명령어 입니다.",
 		Run:   signUp,
 	})
 
