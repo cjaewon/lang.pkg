@@ -16,7 +16,7 @@ type CommandStruct struct {
 	Run func(s *discordgo.Session, m *discordgo.MessageCreate)
 }
 
-var commands map[string]*CommandStruct
+var commands map[string]*CommandStruct = map[string]*CommandStruct{}
 
 // Run : Run Command
 func Run(s *discordgo.Session, m *discordgo.MessageCreate) {
