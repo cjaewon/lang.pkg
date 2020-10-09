@@ -1,7 +1,11 @@
 package cmd
 
 import (
+	"context"
+	"time"
+
 	"github.com/bwmarrin/discordgo"
+	"lang.pkg/lib"
 	"lang.pkg/router"
 )
 
@@ -28,7 +32,17 @@ func signUp(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	embedMsg, _ := s.ChannelMessageSendEmbed(m.ChannelID, &embed)
-
 	s.MessageReactionAdd(embedMsg.ChannelID, embedMsg.ID, "✅")
 
+	ctx, cancle := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancle()
+
+	lib.WaitForReaction(ctx, s, func(r *discordgo.MessageReactionAdd) bool {
+		if r.UserID == m.Author.ID && embedMsg.ID == r.MessageID && r.Emoji.Name == "✅" {
+			return true
+		}
+
+		return false
+	})
+	// fmt.Println(reply.Content)
 }
