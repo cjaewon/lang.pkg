@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"time"
+
 	"github.com/facebook/ent"
 	"github.com/facebook/ent/schema/field"
 )
@@ -17,6 +19,9 @@ func (User) Fields() []ent.Field {
 			Unique(),
 		field.String("username"),
 		field.String("thumbnail"),
+
+		field.Time("created_at").
+			Default(time.Now),
 	}
 }
 

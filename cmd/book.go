@@ -4,6 +4,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 
 	"lang.pkg/ent"
+	"lang.pkg/lib"
 	"lang.pkg/router"
 )
 
@@ -15,10 +16,11 @@ type Book struct {
 // Init : Init Book Router
 func (app Book) Init() {
 	router.Add(&router.CommandStruct{
-		Match: "create",
-		Help:  "!create <이름>, <설명>, [공개 Y/N]",
-		Info:  "단어장을 생성하는 명령어 입니다.",
-		Run:   app.createBook,
+		Match:  "create",
+		Help:   "!create <이름>, <설명>, [공개 Y/N]",
+		Info:   "단어장을 생성하는 명령어 입니다.",
+		PreRun: lib.Passport(app.client),
+		Run:    app.createBook,
 	})
 
 }
