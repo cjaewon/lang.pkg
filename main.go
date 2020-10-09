@@ -21,8 +21,6 @@ func init() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
-
-	cmd.Bootstrap()
 }
 
 func main() {
@@ -37,6 +35,7 @@ func main() {
 		log.Fatalf("Failed creating schema resources: %v", err)
 	}
 
+	cmd.Bootstrap(client)
 	discord, err := discordgo.New("Bot " + os.Getenv("TOKEN"))
 
 	if err != nil {

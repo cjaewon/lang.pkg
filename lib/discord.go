@@ -9,7 +9,9 @@ import (
 
 // MessageFilter : Filter function Type
 type MessageFilter = func(m *discordgo.MessageCreate) bool
-type EmojiFilter = func(r *discordgo.MessageReactionAdd) bool
+
+// ReactionFilter : Filter function Type
+type ReactionFilter = func(r *discordgo.MessageReactionAdd) bool
 
 // WaitForMessage : Wait for Message
 func WaitForMessage(ctx context.Context, s *discordgo.Session, filter MessageFilter) *discordgo.MessageCreate {
@@ -37,7 +39,7 @@ func WaitForMessage(ctx context.Context, s *discordgo.Session, filter MessageFil
 }
 
 // WaitForReaction : Wait for Reaction (emoji)
-func WaitForReaction(ctx context.Context, s *discordgo.Session, filter EmojiFilter) *discordgo.MessageReactionAdd {
+func WaitForReaction(ctx context.Context, s *discordgo.Session, filter ReactionFilter) *discordgo.MessageReactionAdd {
 	c := make(chan *discordgo.MessageReactionAdd)
 	once := sync.Once{}
 
