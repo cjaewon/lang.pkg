@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/bwmarrin/discordgo"
@@ -76,4 +77,10 @@ func CommandError(s *discordgo.Session, m *discordgo.MessageCreate, cmd *router.
 			},
 		},
 	})
+}
+
+// ParseContent : Parse Message Content
+func ParseContent(content string, match string) []string {
+	// TODO: 따옴표로 감싸면 콤마 무시
+	return MapTrim(strings.Split(strings.Replace(content, "!"+match, "", 1), ","))
 }

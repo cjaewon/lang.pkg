@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/facebook/ent"
+	"github.com/facebook/ent/schema/edge"
 	"github.com/facebook/ent/schema/field"
 	"github.com/google/uuid"
 )
@@ -30,5 +31,7 @@ func (User) Fields() []ent.Field {
 
 // Edges of the User.
 func (User) Edges() []ent.Edge {
-	return nil
+	return []ent.Edge{
+		edge.To("books", Book.Type),
+	}
 }

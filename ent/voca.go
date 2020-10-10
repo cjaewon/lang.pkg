@@ -22,7 +22,7 @@ type Voca struct {
 	// Value holds the value of the "value" field.
 	Value string `json:"value,omitempty"`
 	// Example holds the value of the "example" field.
-	Example string `json:"example,omitempty"`
+	Example *string `json:"example,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt  time.Time `json:"created_at,omitempty"`
 	book_vocas *int
@@ -71,7 +71,8 @@ func (v *Voca) assignValues(values ...interface{}) error {
 	if value, ok := values[2].(*sql.NullString); !ok {
 		return fmt.Errorf("unexpected type %T for field example", values[2])
 	} else if value.Valid {
-		v.Example = value.String
+		v.Example = new(string)
+		*v.Example = value.String
 	}
 	if value, ok := values[3].(*sql.NullTime); !ok {
 		return fmt.Errorf("unexpected type %T for field created_at", values[3])
@@ -117,8 +118,10 @@ func (v *Voca) String() string {
 	builder.WriteString(v.Key)
 	builder.WriteString(", value=")
 	builder.WriteString(v.Value)
-	builder.WriteString(", example=")
-	builder.WriteString(v.Example)
+	if v := v.Example; v != nil {
+		builder.WriteString(", example=")
+		builder.WriteString(*v)
+	}
 	builder.WriteString(", created_at=")
 	builder.WriteString(v.CreatedAt.Format(time.ANSIC))
 	builder.WriteByte(')')

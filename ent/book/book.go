@@ -13,8 +13,8 @@ const (
 	FieldID = "id"
 	// FieldBookID holds the string denoting the book_id field in the database.
 	FieldBookID = "book_id"
-	// FieldTitle holds the string denoting the title field in the database.
-	FieldTitle = "title"
+	// FieldName holds the string denoting the name field in the database.
+	FieldName = "name"
 	// FieldDescription holds the string denoting the description field in the database.
 	FieldDescription = "description"
 	// FieldPublic holds the string denoting the public field in the database.
@@ -24,6 +24,8 @@ const (
 
 	// EdgeVocas holds the string denoting the vocas edge name in mutations.
 	EdgeVocas = "vocas"
+	// EdgeOwner holds the string denoting the owner edge name in mutations.
+	EdgeOwner = "owner"
 
 	// Table holds the table name of the book in the database.
 	Table = "books"
@@ -34,22 +36,39 @@ const (
 	VocasInverseTable = "vocas"
 	// VocasColumn is the table column denoting the vocas relation/edge.
 	VocasColumn = "book_vocas"
+	// OwnerTable is the table the holds the owner relation/edge.
+	OwnerTable = "books"
+	// OwnerInverseTable is the table name for the User entity.
+	// It exists in this package in order to avoid circular dependency with the "user" package.
+	OwnerInverseTable = "users"
+	// OwnerColumn is the table column denoting the owner relation/edge.
+	OwnerColumn = "user_books"
 )
 
 // Columns holds all SQL columns for book fields.
 var Columns = []string{
 	FieldID,
 	FieldBookID,
-	FieldTitle,
+	FieldName,
 	FieldDescription,
 	FieldPublic,
 	FieldCreatedAt,
+}
+
+// ForeignKeys holds the SQL foreign-keys that are owned by the Book type.
+var ForeignKeys = []string{
+	"user_books",
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
+			return true
+		}
+	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
 			return true
 		}
 	}

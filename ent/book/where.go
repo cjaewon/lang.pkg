@@ -100,10 +100,10 @@ func BookID(v string) predicate.Book {
 	})
 }
 
-// Title applies equality check predicate on the "title" field. It's identical to TitleEQ.
-func Title(v string) predicate.Book {
+// Name applies equality check predicate on the "name" field. It's identical to NameEQ.
+func Name(v string) predicate.Book {
 	return predicate.Book(func(s *sql.Selector) {
-		s.Where(sql.EQ(s.C(FieldTitle), v))
+		s.Where(sql.EQ(s.C(FieldName), v))
 	})
 }
 
@@ -225,6 +225,20 @@ func BookIDHasSuffix(v string) predicate.Book {
 	})
 }
 
+// BookIDIsNil applies the IsNil predicate on the "book_id" field.
+func BookIDIsNil() predicate.Book {
+	return predicate.Book(func(s *sql.Selector) {
+		s.Where(sql.IsNull(s.C(FieldBookID)))
+	})
+}
+
+// BookIDNotNil applies the NotNil predicate on the "book_id" field.
+func BookIDNotNil() predicate.Book {
+	return predicate.Book(func(s *sql.Selector) {
+		s.Where(sql.NotNull(s.C(FieldBookID)))
+	})
+}
+
 // BookIDEqualFold applies the EqualFold predicate on the "book_id" field.
 func BookIDEqualFold(v string) predicate.Book {
 	return predicate.Book(func(s *sql.Selector) {
@@ -239,22 +253,22 @@ func BookIDContainsFold(v string) predicate.Book {
 	})
 }
 
-// TitleEQ applies the EQ predicate on the "title" field.
-func TitleEQ(v string) predicate.Book {
+// NameEQ applies the EQ predicate on the "name" field.
+func NameEQ(v string) predicate.Book {
 	return predicate.Book(func(s *sql.Selector) {
-		s.Where(sql.EQ(s.C(FieldTitle), v))
+		s.Where(sql.EQ(s.C(FieldName), v))
 	})
 }
 
-// TitleNEQ applies the NEQ predicate on the "title" field.
-func TitleNEQ(v string) predicate.Book {
+// NameNEQ applies the NEQ predicate on the "name" field.
+func NameNEQ(v string) predicate.Book {
 	return predicate.Book(func(s *sql.Selector) {
-		s.Where(sql.NEQ(s.C(FieldTitle), v))
+		s.Where(sql.NEQ(s.C(FieldName), v))
 	})
 }
 
-// TitleIn applies the In predicate on the "title" field.
-func TitleIn(vs ...string) predicate.Book {
+// NameIn applies the In predicate on the "name" field.
+func NameIn(vs ...string) predicate.Book {
 	v := make([]interface{}, len(vs))
 	for i := range v {
 		v[i] = vs[i]
@@ -266,12 +280,12 @@ func TitleIn(vs ...string) predicate.Book {
 			s.Where(sql.False())
 			return
 		}
-		s.Where(sql.In(s.C(FieldTitle), v...))
+		s.Where(sql.In(s.C(FieldName), v...))
 	})
 }
 
-// TitleNotIn applies the NotIn predicate on the "title" field.
-func TitleNotIn(vs ...string) predicate.Book {
+// NameNotIn applies the NotIn predicate on the "name" field.
+func NameNotIn(vs ...string) predicate.Book {
 	v := make([]interface{}, len(vs))
 	for i := range v {
 		v[i] = vs[i]
@@ -283,70 +297,70 @@ func TitleNotIn(vs ...string) predicate.Book {
 			s.Where(sql.False())
 			return
 		}
-		s.Where(sql.NotIn(s.C(FieldTitle), v...))
+		s.Where(sql.NotIn(s.C(FieldName), v...))
 	})
 }
 
-// TitleGT applies the GT predicate on the "title" field.
-func TitleGT(v string) predicate.Book {
+// NameGT applies the GT predicate on the "name" field.
+func NameGT(v string) predicate.Book {
 	return predicate.Book(func(s *sql.Selector) {
-		s.Where(sql.GT(s.C(FieldTitle), v))
+		s.Where(sql.GT(s.C(FieldName), v))
 	})
 }
 
-// TitleGTE applies the GTE predicate on the "title" field.
-func TitleGTE(v string) predicate.Book {
+// NameGTE applies the GTE predicate on the "name" field.
+func NameGTE(v string) predicate.Book {
 	return predicate.Book(func(s *sql.Selector) {
-		s.Where(sql.GTE(s.C(FieldTitle), v))
+		s.Where(sql.GTE(s.C(FieldName), v))
 	})
 }
 
-// TitleLT applies the LT predicate on the "title" field.
-func TitleLT(v string) predicate.Book {
+// NameLT applies the LT predicate on the "name" field.
+func NameLT(v string) predicate.Book {
 	return predicate.Book(func(s *sql.Selector) {
-		s.Where(sql.LT(s.C(FieldTitle), v))
+		s.Where(sql.LT(s.C(FieldName), v))
 	})
 }
 
-// TitleLTE applies the LTE predicate on the "title" field.
-func TitleLTE(v string) predicate.Book {
+// NameLTE applies the LTE predicate on the "name" field.
+func NameLTE(v string) predicate.Book {
 	return predicate.Book(func(s *sql.Selector) {
-		s.Where(sql.LTE(s.C(FieldTitle), v))
+		s.Where(sql.LTE(s.C(FieldName), v))
 	})
 }
 
-// TitleContains applies the Contains predicate on the "title" field.
-func TitleContains(v string) predicate.Book {
+// NameContains applies the Contains predicate on the "name" field.
+func NameContains(v string) predicate.Book {
 	return predicate.Book(func(s *sql.Selector) {
-		s.Where(sql.Contains(s.C(FieldTitle), v))
+		s.Where(sql.Contains(s.C(FieldName), v))
 	})
 }
 
-// TitleHasPrefix applies the HasPrefix predicate on the "title" field.
-func TitleHasPrefix(v string) predicate.Book {
+// NameHasPrefix applies the HasPrefix predicate on the "name" field.
+func NameHasPrefix(v string) predicate.Book {
 	return predicate.Book(func(s *sql.Selector) {
-		s.Where(sql.HasPrefix(s.C(FieldTitle), v))
+		s.Where(sql.HasPrefix(s.C(FieldName), v))
 	})
 }
 
-// TitleHasSuffix applies the HasSuffix predicate on the "title" field.
-func TitleHasSuffix(v string) predicate.Book {
+// NameHasSuffix applies the HasSuffix predicate on the "name" field.
+func NameHasSuffix(v string) predicate.Book {
 	return predicate.Book(func(s *sql.Selector) {
-		s.Where(sql.HasSuffix(s.C(FieldTitle), v))
+		s.Where(sql.HasSuffix(s.C(FieldName), v))
 	})
 }
 
-// TitleEqualFold applies the EqualFold predicate on the "title" field.
-func TitleEqualFold(v string) predicate.Book {
+// NameEqualFold applies the EqualFold predicate on the "name" field.
+func NameEqualFold(v string) predicate.Book {
 	return predicate.Book(func(s *sql.Selector) {
-		s.Where(sql.EqualFold(s.C(FieldTitle), v))
+		s.Where(sql.EqualFold(s.C(FieldName), v))
 	})
 }
 
-// TitleContainsFold applies the ContainsFold predicate on the "title" field.
-func TitleContainsFold(v string) predicate.Book {
+// NameContainsFold applies the ContainsFold predicate on the "name" field.
+func NameContainsFold(v string) predicate.Book {
 	return predicate.Book(func(s *sql.Selector) {
-		s.Where(sql.ContainsFold(s.C(FieldTitle), v))
+		s.Where(sql.ContainsFold(s.C(FieldName), v))
 	})
 }
 
@@ -570,6 +584,34 @@ func HasVocasWith(preds ...predicate.Voca) predicate.Book {
 			sqlgraph.From(Table, FieldID),
 			sqlgraph.To(VocasInverseTable, FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, VocasTable, VocasColumn),
+		)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasOwner applies the HasEdge predicate on the "owner" edge.
+func HasOwner() predicate.Book {
+	return predicate.Book(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.To(OwnerTable, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, OwnerTable, OwnerColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasOwnerWith applies the HasEdge predicate on the "owner" edge with a given conditions (other predicates).
+func HasOwnerWith(preds ...predicate.User) predicate.Book {
+	return predicate.Book(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.To(OwnerInverseTable, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, OwnerTable, OwnerColumn),
 		)
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {

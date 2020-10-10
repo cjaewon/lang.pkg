@@ -8,4 +8,5 @@ import "lang.pkg/ent"
 func Bootstrap(client *ent.Client) {
 	User{client: client}.Init()
 	Book{client: client}.Init()
+	Voca{client: client}.Init()
 }

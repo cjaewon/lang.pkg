@@ -46,6 +46,20 @@ func (vu *VocaUpdate) SetExample(s string) *VocaUpdate {
 	return vu
 }
 
+// SetNillableExample sets the example field if the given value is not nil.
+func (vu *VocaUpdate) SetNillableExample(s *string) *VocaUpdate {
+	if s != nil {
+		vu.SetExample(*s)
+	}
+	return vu
+}
+
+// ClearExample clears the value of example.
+func (vu *VocaUpdate) ClearExample() *VocaUpdate {
+	vu.mutation.ClearExample()
+	return vu
+}
+
 // SetCreatedAt sets the created_at field.
 func (vu *VocaUpdate) SetCreatedAt(t time.Time) *VocaUpdate {
 	vu.mutation.SetCreatedAt(t)
@@ -155,6 +169,12 @@ func (vu *VocaUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Column: voca.FieldExample,
 		})
 	}
+	if vu.mutation.ExampleCleared() {
+		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Column: voca.FieldExample,
+		})
+	}
 	if value, ok := vu.mutation.CreatedAt(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeTime,
@@ -195,6 +215,20 @@ func (vuo *VocaUpdateOne) SetValue(s string) *VocaUpdateOne {
 // SetExample sets the example field.
 func (vuo *VocaUpdateOne) SetExample(s string) *VocaUpdateOne {
 	vuo.mutation.SetExample(s)
+	return vuo
+}
+
+// SetNillableExample sets the example field if the given value is not nil.
+func (vuo *VocaUpdateOne) SetNillableExample(s *string) *VocaUpdateOne {
+	if s != nil {
+		vuo.SetExample(*s)
+	}
+	return vuo
+}
+
+// ClearExample clears the value of example.
+func (vuo *VocaUpdateOne) ClearExample() *VocaUpdateOne {
+	vuo.mutation.ClearExample()
 	return vuo
 }
 
@@ -302,6 +336,12 @@ func (vuo *VocaUpdateOne) sqlSave(ctx context.Context) (_node *Voca, err error) 
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeString,
 			Value:  value,
+			Column: voca.FieldExample,
+		})
+	}
+	if vuo.mutation.ExampleCleared() {
+		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
 			Column: voca.FieldExample,
 		})
 	}

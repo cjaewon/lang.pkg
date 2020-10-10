@@ -11,6 +11,7 @@ import (
 	"github.com/facebook/ent/dialect/sql/sqlgraph"
 	"github.com/facebook/ent/schema/field"
 	"github.com/google/uuid"
+	"lang.pkg/ent/book"
 	"lang.pkg/ent/user"
 )
 
@@ -57,6 +58,21 @@ func (uc *UserCreate) SetNillableCreatedAt(t *time.Time) *UserCreate {
 func (uc *UserCreate) SetID(u uuid.UUID) *UserCreate {
 	uc.mutation.SetID(u)
 	return uc
+}
+
+// AddBookIDs adds the books edge to Book by ids.
+func (uc *UserCreate) AddBookIDs(ids ...int) *UserCreate {
+	uc.mutation.AddBookIDs(ids...)
+	return uc
+}
+
+// AddBooks adds the books edges to Book.
+func (uc *UserCreate) AddBooks(b ...*Book) *UserCreate {
+	ids := make([]int, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return uc.AddBookIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -195,6 +211,25 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Column: user.FieldCreatedAt,
 		})
 		_node.CreatedAt = value
+	}
+	if nodes := uc.mutation.BooksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BooksTable,
+			Columns: []string{user.BooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: book.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

@@ -20,7 +20,9 @@ func (Voca) Fields() []ent.Field {
 			Default(uuid.New),
 		field.String("key"),
 		field.String("value"),
-		field.String("example"),
+		field.String("example").
+			Optional().
+			Nillable(),
 
 		field.Time("created_at").
 			Default(time.Now),

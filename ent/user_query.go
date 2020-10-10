@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"math"
@@ -12,6 +13,7 @@ import (
 	"github.com/facebook/ent/dialect/sql/sqlgraph"
 	"github.com/facebook/ent/schema/field"
 	"github.com/google/uuid"
+	"lang.pkg/ent/book"
 	"lang.pkg/ent/predicate"
 	"lang.pkg/ent/user"
 )
@@ -24,6 +26,8 @@ type UserQuery struct {
 	order      []OrderFunc
 	unique     []string
 	predicates []predicate.User
+	// eager-loading edges.
+	withBooks *BookQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -51,6 +55,28 @@ func (uq *UserQuery) Offset(offset int) *UserQuery {
 func (uq *UserQuery) Order(o ...OrderFunc) *UserQuery {
 	uq.order = append(uq.order, o...)
 	return uq
+}
+
+// QueryBooks chains the current query on the books edge.
+func (uq *UserQuery) QueryBooks() *BookQuery {
+	query := &BookQuery{config: uq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery()
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(book.Table, book.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.BooksTable, user.BooksColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // First returns the first User entity in the query. Returns *NotFoundError when no user was found.
@@ -232,6 +258,17 @@ func (uq *UserQuery) Clone() *UserQuery {
 	}
 }
 
+//  WithBooks tells the query-builder to eager-loads the nodes that are connected to
+// the "books" edge. The optional arguments used to configure the query builder of the edge.
+func (uq *UserQuery) WithBooks(opts ...func(*BookQuery)) *UserQuery {
+	query := &BookQuery{config: uq.config}
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withBooks = query
+	return uq
+}
+
 // GroupBy used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -296,8 +333,11 @@ func (uq *UserQuery) prepareQuery(ctx context.Context) error {
 
 func (uq *UserQuery) sqlAll(ctx context.Context) ([]*User, error) {
 	var (
-		nodes = []*User{}
-		_spec = uq.querySpec()
+		nodes       = []*User{}
+		_spec       = uq.querySpec()
+		loadedTypes = [1]bool{
+			uq.withBooks != nil,
+		}
 	)
 	_spec.ScanValues = func() []interface{} {
 		node := &User{config: uq.config}
@@ -310,6 +350,7 @@ func (uq *UserQuery) sqlAll(ctx context.Context) ([]*User, error) {
 			return fmt.Errorf("ent: Assign called without calling ScanValues")
 		}
 		node := nodes[len(nodes)-1]
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(values...)
 	}
 	if err := sqlgraph.QueryNodes(ctx, uq.driver, _spec); err != nil {
@@ -318,6 +359,35 @@ func (uq *UserQuery) sqlAll(ctx context.Context) ([]*User, error) {
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+
+	if query := uq.withBooks; query != nil {
+		fks := make([]driver.Value, 0, len(nodes))
+		nodeids := make(map[uuid.UUID]*User)
+		for i := range nodes {
+			fks = append(fks, nodes[i].ID)
+			nodeids[nodes[i].ID] = nodes[i]
+		}
+		query.withFKs = true
+		query.Where(predicate.Book(func(s *sql.Selector) {
+			s.Where(sql.InValues(user.BooksColumn, fks...))
+		}))
+		neighbors, err := query.All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range neighbors {
+			fk := n.user_books
+			if fk == nil {
+				return nil, fmt.Errorf(`foreign-key "user_books" is nil for node %v`, n.ID)
+			}
+			node, ok := nodeids[*fk]
+			if !ok {
+				return nil, fmt.Errorf(`unexpected foreign-key "user_books" returned %v for node %v`, *fk, n.ID)
+			}
+			node.Edges.Books = append(node.Edges.Books, n)
+		}
+	}
+
 	return nodes, nil
 }
 

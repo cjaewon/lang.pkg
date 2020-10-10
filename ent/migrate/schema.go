@@ -11,18 +11,27 @@ var (
 	// BooksColumns holds the columns for the "books" table.
 	BooksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "book_id", Type: field.TypeString, Unique: true},
-		{Name: "title", Type: field.TypeString},
+		{Name: "book_id", Type: field.TypeString, Unique: true, Nullable: true},
+		{Name: "name", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString},
 		{Name: "public", Type: field.TypeBool},
 		{Name: "created_at", Type: field.TypeTime},
+		{Name: "user_books", Type: field.TypeUUID, Nullable: true},
 	}
 	// BooksTable holds the schema information for the "books" table.
 	BooksTable = &schema.Table{
-		Name:        "books",
-		Columns:     BooksColumns,
-		PrimaryKey:  []*schema.Column{BooksColumns[0]},
-		ForeignKeys: []*schema.ForeignKey{},
+		Name:       "books",
+		Columns:    BooksColumns,
+		PrimaryKey: []*schema.Column{BooksColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:  "books_users_books",
+				Columns: []*schema.Column{BooksColumns[6]},
+
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
 	}
 	// UsersColumns holds the columns for the "users" table.
 	UsersColumns = []*schema.Column{
@@ -44,7 +53,7 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "key", Type: field.TypeString},
 		{Name: "value", Type: field.TypeString},
-		{Name: "example", Type: field.TypeString},
+		{Name: "example", Type: field.TypeString, Nullable: true},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "book_vocas", Type: field.TypeInt, Nullable: true},
 	}
@@ -72,5 +81,6 @@ var (
 )
 
 func init() {
+	BooksTable.ForeignKeys[0].RefTable = UsersTable
 	VocasTable.ForeignKeys[0].RefTable = BooksTable
 }

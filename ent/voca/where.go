@@ -440,6 +440,20 @@ func ExampleHasSuffix(v string) predicate.Voca {
 	})
 }
 
+// ExampleIsNil applies the IsNil predicate on the "example" field.
+func ExampleIsNil() predicate.Voca {
+	return predicate.Voca(func(s *sql.Selector) {
+		s.Where(sql.IsNull(s.C(FieldExample)))
+	})
+}
+
+// ExampleNotNil applies the NotNil predicate on the "example" field.
+func ExampleNotNil() predicate.Voca {
+	return predicate.Voca(func(s *sql.Selector) {
+		s.Where(sql.NotNull(s.C(FieldExample)))
+	})
+}
+
 // ExampleEqualFold applies the EqualFold predicate on the "example" field.
 func ExampleEqualFold(v string) predicate.Voca {
 	return predicate.Voca(func(s *sql.Selector) {

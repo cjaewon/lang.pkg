@@ -18,8 +18,10 @@ func (Book) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int("id"), // auto increment primary key not uuid
 		field.String("book_id").
+			Optional().
+			Nillable().
 			Unique(),
-		field.String("title"),
+		field.String("name"),
 		field.String("description"),
 		field.Bool("public"),
 
@@ -32,5 +34,8 @@ func (Book) Fields() []ent.Field {
 func (Book) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("vocas", Voca.Type),
+		edge.From("owner", User.Type).
+			Ref("books").
+			Unique(),
 	}
 }

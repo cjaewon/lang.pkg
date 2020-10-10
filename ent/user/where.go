@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/facebook/ent/dialect/sql"
+	"github.com/facebook/ent/dialect/sql/sqlgraph"
 	"github.com/google/uuid"
 	"lang.pkg/ent/predicate"
 )
@@ -527,6 +528,34 @@ func CreatedAtLT(v time.Time) predicate.User {
 func CreatedAtLTE(v time.Time) predicate.User {
 	return predicate.User(func(s *sql.Selector) {
 		s.Where(sql.LTE(s.C(FieldCreatedAt), v))
+	})
+}
+
+// HasBooks applies the HasEdge predicate on the "books" edge.
+func HasBooks() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.To(BooksTable, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, BooksTable, BooksColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasBooksWith applies the HasEdge predicate on the "books" edge with a given conditions (other predicates).
+func HasBooksWith(preds ...predicate.Book) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.To(BooksInverseTable, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, BooksTable, BooksColumn),
+		)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
 	})
 }
 

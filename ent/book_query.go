@@ -12,8 +12,10 @@ import (
 	"github.com/facebook/ent/dialect/sql"
 	"github.com/facebook/ent/dialect/sql/sqlgraph"
 	"github.com/facebook/ent/schema/field"
+	"github.com/google/uuid"
 	"lang.pkg/ent/book"
 	"lang.pkg/ent/predicate"
+	"lang.pkg/ent/user"
 	"lang.pkg/ent/voca"
 )
 
@@ -27,6 +29,8 @@ type BookQuery struct {
 	predicates []predicate.Book
 	// eager-loading edges.
 	withVocas *VocaQuery
+	withOwner *UserQuery
+	withFKs   bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -71,6 +75,28 @@ func (bq *BookQuery) QueryVocas() *VocaQuery {
 			sqlgraph.From(book.Table, book.FieldID, selector),
 			sqlgraph.To(voca.Table, voca.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, book.VocasTable, book.VocasColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(bq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryOwner chains the current query on the owner edge.
+func (bq *BookQuery) QueryOwner() *UserQuery {
+	query := &UserQuery{config: bq.config}
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := bq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := bq.sqlQuery()
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(book.Table, book.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, book.OwnerTable, book.OwnerColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(bq.driver.Dialect(), step)
 		return fromU, nil
@@ -268,6 +294,17 @@ func (bq *BookQuery) WithVocas(opts ...func(*VocaQuery)) *BookQuery {
 	return bq
 }
 
+//  WithOwner tells the query-builder to eager-loads the nodes that are connected to
+// the "owner" edge. The optional arguments used to configure the query builder of the edge.
+func (bq *BookQuery) WithOwner(opts ...func(*UserQuery)) *BookQuery {
+	query := &UserQuery{config: bq.config}
+	for _, opt := range opts {
+		opt(query)
+	}
+	bq.withOwner = query
+	return bq
+}
+
 // GroupBy used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -333,15 +370,26 @@ func (bq *BookQuery) prepareQuery(ctx context.Context) error {
 func (bq *BookQuery) sqlAll(ctx context.Context) ([]*Book, error) {
 	var (
 		nodes       = []*Book{}
+		withFKs     = bq.withFKs
 		_spec       = bq.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			bq.withVocas != nil,
+			bq.withOwner != nil,
 		}
 	)
+	if bq.withOwner != nil {
+		withFKs = true
+	}
+	if withFKs {
+		_spec.Node.Columns = append(_spec.Node.Columns, book.ForeignKeys...)
+	}
 	_spec.ScanValues = func() []interface{} {
 		node := &Book{config: bq.config}
 		nodes = append(nodes, node)
 		values := node.scanValues()
+		if withFKs {
+			values = append(values, node.fkValues()...)
+		}
 		return values
 	}
 	_spec.Assign = func(values ...interface{}) error {
@@ -384,6 +432,31 @@ func (bq *BookQuery) sqlAll(ctx context.Context) ([]*Book, error) {
 				return nil, fmt.Errorf(`unexpected foreign-key "book_vocas" returned %v for node %v`, *fk, n.ID)
 			}
 			node.Edges.Vocas = append(node.Edges.Vocas, n)
+		}
+	}
+
+	if query := bq.withOwner; query != nil {
+		ids := make([]uuid.UUID, 0, len(nodes))
+		nodeids := make(map[uuid.UUID][]*Book)
+		for i := range nodes {
+			if fk := nodes[i].user_books; fk != nil {
+				ids = append(ids, *fk)
+				nodeids[*fk] = append(nodeids[*fk], nodes[i])
+			}
+		}
+		query.Where(user.IDIn(ids...))
+		neighbors, err := query.All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, n := range neighbors {
+			nodes, ok := nodeids[n.ID]
+			if !ok {
+				return nil, fmt.Errorf(`unexpected foreign-key "user_books" returned %v`, n.ID)
+			}
+			for i := range nodes {
+				nodes[i].Edges.Owner = n
+			}
 		}
 	}
 

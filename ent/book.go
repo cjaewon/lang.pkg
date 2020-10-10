@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/facebook/ent/dialect/sql"
+	"github.com/google/uuid"
 	"lang.pkg/ent/book"
+	"lang.pkg/ent/user"
 )
 
 // Book is the model entity for the Book schema.
@@ -17,9 +19,9 @@ type Book struct {
 	// ID of the ent.
 	ID int `json:"id,omitempty"`
 	// BookID holds the value of the "book_id" field.
-	BookID string `json:"book_id,omitempty"`
-	// Title holds the value of the "title" field.
-	Title string `json:"title,omitempty"`
+	BookID *string `json:"book_id,omitempty"`
+	// Name holds the value of the "name" field.
+	Name string `json:"name,omitempty"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description,omitempty"`
 	// Public holds the value of the "public" field.
@@ -28,16 +30,19 @@ type Book struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the BookQuery when eager-loading is set.
-	Edges BookEdges `json:"edges"`
+	Edges      BookEdges `json:"edges"`
+	user_books *uuid.UUID
 }
 
 // BookEdges holds the relations/edges for other nodes in the graph.
 type BookEdges struct {
 	// Vocas holds the value of the vocas edge.
 	Vocas []*Voca
+	// Owner holds the value of the owner edge.
+	Owner *User
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // VocasOrErr returns the Vocas value or an error if the edge
@@ -49,15 +54,36 @@ func (e BookEdges) VocasOrErr() ([]*Voca, error) {
 	return nil, &NotLoadedError{edge: "vocas"}
 }
 
+// OwnerOrErr returns the Owner value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e BookEdges) OwnerOrErr() (*User, error) {
+	if e.loadedTypes[1] {
+		if e.Owner == nil {
+			// The edge owner was loaded in eager-loading,
+			// but was not found.
+			return nil, &NotFoundError{label: user.Label}
+		}
+		return e.Owner, nil
+	}
+	return nil, &NotLoadedError{edge: "owner"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Book) scanValues() []interface{} {
 	return []interface{}{
 		&sql.NullInt64{},  // id
 		&sql.NullString{}, // book_id
-		&sql.NullString{}, // title
+		&sql.NullString{}, // name
 		&sql.NullString{}, // description
 		&sql.NullBool{},   // public
 		&sql.NullTime{},   // created_at
+	}
+}
+
+// fkValues returns the types for scanning foreign-keys values from sql.Rows.
+func (*Book) fkValues() []interface{} {
+	return []interface{}{
+		&uuid.UUID{}, // user_books
 	}
 }
 
@@ -76,12 +102,13 @@ func (b *Book) assignValues(values ...interface{}) error {
 	if value, ok := values[0].(*sql.NullString); !ok {
 		return fmt.Errorf("unexpected type %T for field book_id", values[0])
 	} else if value.Valid {
-		b.BookID = value.String
+		b.BookID = new(string)
+		*b.BookID = value.String
 	}
 	if value, ok := values[1].(*sql.NullString); !ok {
-		return fmt.Errorf("unexpected type %T for field title", values[1])
+		return fmt.Errorf("unexpected type %T for field name", values[1])
 	} else if value.Valid {
-		b.Title = value.String
+		b.Name = value.String
 	}
 	if value, ok := values[2].(*sql.NullString); !ok {
 		return fmt.Errorf("unexpected type %T for field description", values[2])
@@ -98,12 +125,25 @@ func (b *Book) assignValues(values ...interface{}) error {
 	} else if value.Valid {
 		b.CreatedAt = value.Time
 	}
+	values = values[5:]
+	if len(values) == len(book.ForeignKeys) {
+		if value, ok := values[0].(*uuid.UUID); !ok {
+			return fmt.Errorf("unexpected type %T for field user_books", values[0])
+		} else if value != nil {
+			b.user_books = value
+		}
+	}
 	return nil
 }
 
 // QueryVocas queries the vocas edge of the Book.
 func (b *Book) QueryVocas() *VocaQuery {
 	return (&BookClient{config: b.config}).QueryVocas(b)
+}
+
+// QueryOwner queries the owner edge of the Book.
+func (b *Book) QueryOwner() *UserQuery {
+	return (&BookClient{config: b.config}).QueryOwner(b)
 }
 
 // Update returns a builder for updating this Book.
@@ -129,10 +169,12 @@ func (b *Book) String() string {
 	var builder strings.Builder
 	builder.WriteString("Book(")
 	builder.WriteString(fmt.Sprintf("id=%v", b.ID))
-	builder.WriteString(", book_id=")
-	builder.WriteString(b.BookID)
-	builder.WriteString(", title=")
-	builder.WriteString(b.Title)
+	if v := b.BookID; v != nil {
+		builder.WriteString(", book_id=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", name=")
+	builder.WriteString(b.Name)
 	builder.WriteString(", description=")
 	builder.WriteString(b.Description)
 	builder.WriteString(", public=")

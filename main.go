@@ -24,7 +24,9 @@ func init() {
 }
 
 func main() {
-	client, err := ent.Open("mysql", os.Getenv("DB_URI"))
+	client, err := ent.Open("mysql", os.Getenv("DB_URI"), ent.Log(func(v ...interface{}) {
+		log.Println(v)
+	}), ent.Debug())
 	if err != nil {
 		log.Fatalf("Failed opening connection to mysql: %v", err)
 	}

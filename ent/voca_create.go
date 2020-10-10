@@ -39,6 +39,14 @@ func (vc *VocaCreate) SetExample(s string) *VocaCreate {
 	return vc
 }
 
+// SetNillableExample sets the example field if the given value is not nil.
+func (vc *VocaCreate) SetNillableExample(s *string) *VocaCreate {
+	if s != nil {
+		vc.SetExample(*s)
+	}
+	return vc
+}
+
 // SetCreatedAt sets the created_at field.
 func (vc *VocaCreate) SetCreatedAt(t time.Time) *VocaCreate {
 	vc.mutation.SetCreatedAt(t)
@@ -129,9 +137,6 @@ func (vc *VocaCreate) check() error {
 	if _, ok := vc.mutation.Value(); !ok {
 		return &ValidationError{Name: "value", err: errors.New("ent: missing required field \"value\"")}
 	}
-	if _, ok := vc.mutation.Example(); !ok {
-		return &ValidationError{Name: "example", err: errors.New("ent: missing required field \"example\"")}
-	}
 	if _, ok := vc.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New("ent: missing required field \"created_at\"")}
 	}
@@ -186,7 +191,7 @@ func (vc *VocaCreate) createSpec() (*Voca, *sqlgraph.CreateSpec) {
 			Value:  value,
 			Column: voca.FieldExample,
 		})
-		_node.Example = value
+		_node.Example = &value
 	}
 	if value, ok := vc.mutation.CreatedAt(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{

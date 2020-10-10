@@ -38,7 +38,7 @@ type BookMutation struct {
 	typ           string
 	id            *int
 	book_id       *string
-	title         *string
+	name          *string
 	description   *string
 	public        *bool
 	created_at    *time.Time
@@ -46,6 +46,8 @@ type BookMutation struct {
 	vocas         map[uuid.UUID]struct{}
 	removedvocas  map[uuid.UUID]struct{}
 	clearedvocas  bool
+	owner         *uuid.UUID
+	clearedowner  bool
 	done          bool
 	oldValue      func(context.Context) (*Book, error)
 }
@@ -153,7 +155,7 @@ func (m *BookMutation) BookID() (r string, exists bool) {
 // If the Book object wasn't provided to the builder, the object is fetched
 // from the database.
 // An error is returned if the mutation operation is not UpdateOne, or database query fails.
-func (m *BookMutation) OldBookID(ctx context.Context) (v string, err error) {
+func (m *BookMutation) OldBookID(ctx context.Context) (v *string, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, fmt.Errorf("OldBookID is allowed only on UpdateOne operations")
 	}
@@ -167,46 +169,59 @@ func (m *BookMutation) OldBookID(ctx context.Context) (v string, err error) {
 	return oldValue.BookID, nil
 }
 
+// ClearBookID clears the value of book_id.
+func (m *BookMutation) ClearBookID() {
+	m.book_id = nil
+	m.clearedFields[book.FieldBookID] = struct{}{}
+}
+
+// BookIDCleared returns if the field book_id was cleared in this mutation.
+func (m *BookMutation) BookIDCleared() bool {
+	_, ok := m.clearedFields[book.FieldBookID]
+	return ok
+}
+
 // ResetBookID reset all changes of the "book_id" field.
 func (m *BookMutation) ResetBookID() {
 	m.book_id = nil
+	delete(m.clearedFields, book.FieldBookID)
 }
 
-// SetTitle sets the title field.
-func (m *BookMutation) SetTitle(s string) {
-	m.title = &s
+// SetName sets the name field.
+func (m *BookMutation) SetName(s string) {
+	m.name = &s
 }
 
-// Title returns the title value in the mutation.
-func (m *BookMutation) Title() (r string, exists bool) {
-	v := m.title
+// Name returns the name value in the mutation.
+func (m *BookMutation) Name() (r string, exists bool) {
+	v := m.name
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldTitle returns the old title value of the Book.
+// OldName returns the old name value of the Book.
 // If the Book object wasn't provided to the builder, the object is fetched
 // from the database.
 // An error is returned if the mutation operation is not UpdateOne, or database query fails.
-func (m *BookMutation) OldTitle(ctx context.Context) (v string, err error) {
+func (m *BookMutation) OldName(ctx context.Context) (v string, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, fmt.Errorf("OldTitle is allowed only on UpdateOne operations")
+		return v, fmt.Errorf("OldName is allowed only on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, fmt.Errorf("OldTitle requires an ID field in the mutation")
+		return v, fmt.Errorf("OldName requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
 	}
-	return oldValue.Title, nil
+	return oldValue.Name, nil
 }
 
-// ResetTitle reset all changes of the "title" field.
-func (m *BookMutation) ResetTitle() {
-	m.title = nil
+// ResetName reset all changes of the "name" field.
+func (m *BookMutation) ResetName() {
+	m.name = nil
 }
 
 // SetDescription sets the description field.
@@ -373,6 +388,45 @@ func (m *BookMutation) ResetVocas() {
 	m.removedvocas = nil
 }
 
+// SetOwnerID sets the owner edge to User by id.
+func (m *BookMutation) SetOwnerID(id uuid.UUID) {
+	m.owner = &id
+}
+
+// ClearOwner clears the owner edge to User.
+func (m *BookMutation) ClearOwner() {
+	m.clearedowner = true
+}
+
+// OwnerCleared returns if the edge owner was cleared.
+func (m *BookMutation) OwnerCleared() bool {
+	return m.clearedowner
+}
+
+// OwnerID returns the owner id in the mutation.
+func (m *BookMutation) OwnerID() (id uuid.UUID, exists bool) {
+	if m.owner != nil {
+		return *m.owner, true
+	}
+	return
+}
+
+// OwnerIDs returns the owner ids in the mutation.
+// Note that ids always returns len(ids) <= 1 for unique edges, and you should use
+// OwnerID instead. It exists only for internal usage by the builders.
+func (m *BookMutation) OwnerIDs() (ids []uuid.UUID) {
+	if id := m.owner; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOwner reset all changes of the "owner" edge.
+func (m *BookMutation) ResetOwner() {
+	m.owner = nil
+	m.clearedowner = false
+}
+
 // Op returns the operation name.
 func (m *BookMutation) Op() Op {
 	return m.op
@@ -391,8 +445,8 @@ func (m *BookMutation) Fields() []string {
 	if m.book_id != nil {
 		fields = append(fields, book.FieldBookID)
 	}
-	if m.title != nil {
-		fields = append(fields, book.FieldTitle)
+	if m.name != nil {
+		fields = append(fields, book.FieldName)
 	}
 	if m.description != nil {
 		fields = append(fields, book.FieldDescription)
@@ -413,8 +467,8 @@ func (m *BookMutation) Field(name string) (ent.Value, bool) {
 	switch name {
 	case book.FieldBookID:
 		return m.BookID()
-	case book.FieldTitle:
-		return m.Title()
+	case book.FieldName:
+		return m.Name()
 	case book.FieldDescription:
 		return m.Description()
 	case book.FieldPublic:
@@ -432,8 +486,8 @@ func (m *BookMutation) OldField(ctx context.Context, name string) (ent.Value, er
 	switch name {
 	case book.FieldBookID:
 		return m.OldBookID(ctx)
-	case book.FieldTitle:
-		return m.OldTitle(ctx)
+	case book.FieldName:
+		return m.OldName(ctx)
 	case book.FieldDescription:
 		return m.OldDescription(ctx)
 	case book.FieldPublic:
@@ -456,12 +510,12 @@ func (m *BookMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetBookID(v)
 		return nil
-	case book.FieldTitle:
+	case book.FieldName:
 		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetTitle(v)
+		m.SetName(v)
 		return nil
 	case book.FieldDescription:
 		v, ok := value.(string)
@@ -513,7 +567,11 @@ func (m *BookMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared
 // during this mutation.
 func (m *BookMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(book.FieldBookID) {
+		fields = append(fields, book.FieldBookID)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicates if this field was
@@ -526,6 +584,11 @@ func (m *BookMutation) FieldCleared(name string) bool {
 // ClearField clears the value for the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *BookMutation) ClearField(name string) error {
+	switch name {
+	case book.FieldBookID:
+		m.ClearBookID()
+		return nil
+	}
 	return fmt.Errorf("unknown Book nullable field %s", name)
 }
 
@@ -537,8 +600,8 @@ func (m *BookMutation) ResetField(name string) error {
 	case book.FieldBookID:
 		m.ResetBookID()
 		return nil
-	case book.FieldTitle:
-		m.ResetTitle()
+	case book.FieldName:
+		m.ResetName()
 		return nil
 	case book.FieldDescription:
 		m.ResetDescription()
@@ -556,9 +619,12 @@ func (m *BookMutation) ResetField(name string) error {
 // AddedEdges returns all edge names that were set/added in this
 // mutation.
 func (m *BookMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.vocas != nil {
 		edges = append(edges, book.EdgeVocas)
+	}
+	if m.owner != nil {
+		edges = append(edges, book.EdgeOwner)
 	}
 	return edges
 }
@@ -573,6 +639,10 @@ func (m *BookMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case book.EdgeOwner:
+		if id := m.owner; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
@@ -580,7 +650,7 @@ func (m *BookMutation) AddedIDs(name string) []ent.Value {
 // RemovedEdges returns all edge names that were removed in this
 // mutation.
 func (m *BookMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.removedvocas != nil {
 		edges = append(edges, book.EdgeVocas)
 	}
@@ -604,9 +674,12 @@ func (m *BookMutation) RemovedIDs(name string) []ent.Value {
 // ClearedEdges returns all edge names that were cleared in this
 // mutation.
 func (m *BookMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.clearedvocas {
 		edges = append(edges, book.EdgeVocas)
+	}
+	if m.clearedowner {
+		edges = append(edges, book.EdgeOwner)
 	}
 	return edges
 }
@@ -617,6 +690,8 @@ func (m *BookMutation) EdgeCleared(name string) bool {
 	switch name {
 	case book.EdgeVocas:
 		return m.clearedvocas
+	case book.EdgeOwner:
+		return m.clearedowner
 	}
 	return false
 }
@@ -625,6 +700,9 @@ func (m *BookMutation) EdgeCleared(name string) bool {
 // error if the edge name is not defined in the schema.
 func (m *BookMutation) ClearEdge(name string) error {
 	switch name {
+	case book.EdgeOwner:
+		m.ClearOwner()
+		return nil
 	}
 	return fmt.Errorf("unknown Book unique edge %s", name)
 }
@@ -636,6 +714,9 @@ func (m *BookMutation) ResetEdge(name string) error {
 	switch name {
 	case book.EdgeVocas:
 		m.ResetVocas()
+		return nil
+	case book.EdgeOwner:
+		m.ResetOwner()
 		return nil
 	}
 	return fmt.Errorf("unknown Book edge %s", name)
@@ -653,6 +734,9 @@ type UserMutation struct {
 	thumbnail     *string
 	created_at    *time.Time
 	clearedFields map[string]struct{}
+	books         map[int]struct{}
+	removedbooks  map[int]struct{}
+	clearedbooks  bool
 	done          bool
 	oldValue      func(context.Context) (*User, error)
 }
@@ -890,6 +974,59 @@ func (m *UserMutation) ResetCreatedAt() {
 	m.created_at = nil
 }
 
+// AddBookIDs adds the books edge to Book by ids.
+func (m *UserMutation) AddBookIDs(ids ...int) {
+	if m.books == nil {
+		m.books = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.books[ids[i]] = struct{}{}
+	}
+}
+
+// ClearBooks clears the books edge to Book.
+func (m *UserMutation) ClearBooks() {
+	m.clearedbooks = true
+}
+
+// BooksCleared returns if the edge books was cleared.
+func (m *UserMutation) BooksCleared() bool {
+	return m.clearedbooks
+}
+
+// RemoveBookIDs removes the books edge to Book by ids.
+func (m *UserMutation) RemoveBookIDs(ids ...int) {
+	if m.removedbooks == nil {
+		m.removedbooks = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.removedbooks[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedBooks returns the removed ids of books.
+func (m *UserMutation) RemovedBooksIDs() (ids []int) {
+	for id := range m.removedbooks {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// BooksIDs returns the books ids in the mutation.
+func (m *UserMutation) BooksIDs() (ids []int) {
+	for id := range m.books {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetBooks reset all changes of the "books" edge.
+func (m *UserMutation) ResetBooks() {
+	m.books = nil
+	m.clearedbooks = false
+	m.removedbooks = nil
+}
+
 // Op returns the operation name.
 func (m *UserMutation) Op() Op {
 	return m.op
@@ -1056,45 +1193,76 @@ func (m *UserMutation) ResetField(name string) error {
 // AddedEdges returns all edge names that were set/added in this
 // mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.books != nil {
+		edges = append(edges, user.EdgeBooks)
+	}
 	return edges
 }
 
 // AddedIDs returns all ids (to other nodes) that were added for
 // the given edge name.
 func (m *UserMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case user.EdgeBooks:
+		ids := make([]ent.Value, 0, len(m.books))
+		for id := range m.books {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this
 // mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.removedbooks != nil {
+		edges = append(edges, user.EdgeBooks)
+	}
 	return edges
 }
 
 // RemovedIDs returns all ids (to other nodes) that were removed for
 // the given edge name.
 func (m *UserMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case user.EdgeBooks:
+		ids := make([]ent.Value, 0, len(m.removedbooks))
+		for id := range m.removedbooks {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this
 // mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.clearedbooks {
+		edges = append(edges, user.EdgeBooks)
+	}
 	return edges
 }
 
 // EdgeCleared returns a boolean indicates if this edge was
 // cleared in this mutation.
 func (m *UserMutation) EdgeCleared(name string) bool {
+	switch name {
+	case user.EdgeBooks:
+		return m.clearedbooks
+	}
 	return false
 }
 
 // ClearEdge clears the value for the given name. It returns an
 // error if the edge name is not defined in the schema.
 func (m *UserMutation) ClearEdge(name string) error {
+	switch name {
+	}
 	return fmt.Errorf("unknown User unique edge %s", name)
 }
 
@@ -1102,6 +1270,11 @@ func (m *UserMutation) ClearEdge(name string) error {
 // given edge name. It returns an error if the edge is not
 // defined in the schema.
 func (m *UserMutation) ResetEdge(name string) error {
+	switch name {
+	case user.EdgeBooks:
+		m.ResetBooks()
+		return nil
+	}
 	return fmt.Errorf("unknown User edge %s", name)
 }
 
@@ -1298,7 +1471,7 @@ func (m *VocaMutation) Example() (r string, exists bool) {
 // If the Voca object wasn't provided to the builder, the object is fetched
 // from the database.
 // An error is returned if the mutation operation is not UpdateOne, or database query fails.
-func (m *VocaMutation) OldExample(ctx context.Context) (v string, err error) {
+func (m *VocaMutation) OldExample(ctx context.Context) (v *string, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, fmt.Errorf("OldExample is allowed only on UpdateOne operations")
 	}
@@ -1312,9 +1485,22 @@ func (m *VocaMutation) OldExample(ctx context.Context) (v string, err error) {
 	return oldValue.Example, nil
 }
 
+// ClearExample clears the value of example.
+func (m *VocaMutation) ClearExample() {
+	m.example = nil
+	m.clearedFields[voca.FieldExample] = struct{}{}
+}
+
+// ExampleCleared returns if the field example was cleared in this mutation.
+func (m *VocaMutation) ExampleCleared() bool {
+	_, ok := m.clearedFields[voca.FieldExample]
+	return ok
+}
+
 // ResetExample reset all changes of the "example" field.
 func (m *VocaMutation) ResetExample() {
 	m.example = nil
+	delete(m.clearedFields, voca.FieldExample)
 }
 
 // SetCreatedAt sets the created_at field.
@@ -1480,7 +1666,11 @@ func (m *VocaMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared
 // during this mutation.
 func (m *VocaMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(voca.FieldExample) {
+		fields = append(fields, voca.FieldExample)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicates if this field was
@@ -1493,6 +1683,11 @@ func (m *VocaMutation) FieldCleared(name string) bool {
 // ClearField clears the value for the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *VocaMutation) ClearField(name string) error {
+	switch name {
+	case voca.FieldExample:
+		m.ClearExample()
+		return nil
+	}
 	return fmt.Errorf("unknown Voca nullable field %s", name)
 }
 

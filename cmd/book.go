@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
 	"lang.pkg/ent"
+	"lang.pkg/ent/user"
 	"lang.pkg/lib"
 	"lang.pkg/router"
 )
@@ -27,23 +27,22 @@ func (app Book) Init() {
 		PreRun: lib.Passport(app.client),
 		Run:    app.createBook,
 	})
-
 }
 
 func (app *Book) createBook(s *discordgo.Session, m *discordgo.MessageCreate, cmd *router.CommandStruct) {
-	args := lib.MapTrim(strings.Split(strings.Replace(m.Content, "!"+cmd.Match, "", 1), ","))
+	args := lib.ParseContent(m.Content, cmd.Match)
 	if len(args) < 2 {
 		lib.CommandError(s, m, cmd)
 		return
 	}
 
-	title := ""
+	name := ""
 	public := true
 
 	if !strings.Contains(args[0], "단어장") {
-		title = args[0] + " 단어장"
+		name = args[0] + " 단어장"
 	} else {
-		title = args[0]
+		name = args[0]
 	}
 
 	if len(args) > 2 && (args[2] == "n" || args[2] == "N" || args[2] == "no" || args[2] == "NO") {
@@ -52,8 +51,7 @@ func (app *Book) createBook(s *discordgo.Session, m *discordgo.MessageCreate, cm
 
 	book, err := app.client.Book.
 		Create().
-		SetBookID(uuid.New().String()).
-		SetTitle(title).
+		SetName(name).
 		SetDescription(args[1]).
 		SetPublic(public).
 		Save(context.Background())
@@ -69,8 +67,14 @@ func (app *Book) createBook(s *discordgo.Session, m *discordgo.MessageCreate, cm
 		return
 	}
 
+	_, err = app.client.User.Update().Where(user.UserIDEQ(m.Author.ID)).AddBooks(book).Save(context.Background())
+	if err != nil {
+		log.Errorf("Failed querying book : %v", err)
+		return
+	}
+
 	s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
-		Title:       "📚 " + title,
+		Title:       "📚 " + name,
 		Description: "__" + args[1] + "__",
 		Color:       0x70a1ff,
 		Fields: []*discordgo.MessageEmbedField{
@@ -86,7 +90,7 @@ func (app *Book) createBook(s *discordgo.Session, m *discordgo.MessageCreate, cm
 			},
 			{
 				Name:   "코드",
-				Value:  "`" + book.BookID + "`",
+				Value:  "`" + *book.BookID + "`",
 				Inline: true,
 			},
 		},

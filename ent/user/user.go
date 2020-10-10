@@ -22,8 +22,18 @@ const (
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 
+	// EdgeBooks holds the string denoting the books edge name in mutations.
+	EdgeBooks = "books"
+
 	// Table holds the table name of the user in the database.
 	Table = "users"
+	// BooksTable is the table the holds the books relation/edge.
+	BooksTable = "books"
+	// BooksInverseTable is the table name for the Book entity.
+	// It exists in this package in order to avoid circular dependency with the "book" package.
+	BooksInverseTable = "books"
+	// BooksColumn is the table column denoting the books relation/edge.
+	BooksColumn = "user_books"
 )
 
 // Columns holds all SQL columns for user fields.

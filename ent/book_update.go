@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"lang.pkg/ent/book"
 	"lang.pkg/ent/predicate"
+	"lang.pkg/ent/user"
 	"lang.pkg/ent/voca"
 )
 
@@ -36,9 +37,23 @@ func (bu *BookUpdate) SetBookID(s string) *BookUpdate {
 	return bu
 }
 
-// SetTitle sets the title field.
-func (bu *BookUpdate) SetTitle(s string) *BookUpdate {
-	bu.mutation.SetTitle(s)
+// SetNillableBookID sets the book_id field if the given value is not nil.
+func (bu *BookUpdate) SetNillableBookID(s *string) *BookUpdate {
+	if s != nil {
+		bu.SetBookID(*s)
+	}
+	return bu
+}
+
+// ClearBookID clears the value of book_id.
+func (bu *BookUpdate) ClearBookID() *BookUpdate {
+	bu.mutation.ClearBookID()
+	return bu
+}
+
+// SetName sets the name field.
+func (bu *BookUpdate) SetName(s string) *BookUpdate {
+	bu.mutation.SetName(s)
 	return bu
 }
 
@@ -83,6 +98,25 @@ func (bu *BookUpdate) AddVocas(v ...*Voca) *BookUpdate {
 	return bu.AddVocaIDs(ids...)
 }
 
+// SetOwnerID sets the owner edge to User by id.
+func (bu *BookUpdate) SetOwnerID(id uuid.UUID) *BookUpdate {
+	bu.mutation.SetOwnerID(id)
+	return bu
+}
+
+// SetNillableOwnerID sets the owner edge to User by id if the given value is not nil.
+func (bu *BookUpdate) SetNillableOwnerID(id *uuid.UUID) *BookUpdate {
+	if id != nil {
+		bu = bu.SetOwnerID(*id)
+	}
+	return bu
+}
+
+// SetOwner sets the owner edge to User.
+func (bu *BookUpdate) SetOwner(u *User) *BookUpdate {
+	return bu.SetOwnerID(u.ID)
+}
+
 // Mutation returns the BookMutation object of the builder.
 func (bu *BookUpdate) Mutation() *BookMutation {
 	return bu.mutation
@@ -107,6 +141,12 @@ func (bu *BookUpdate) RemoveVocas(v ...*Voca) *BookUpdate {
 		ids[i] = v[i].ID
 	}
 	return bu.RemoveVocaIDs(ids...)
+}
+
+// ClearOwner clears the "owner" edge to type User.
+func (bu *BookUpdate) ClearOwner() *BookUpdate {
+	bu.mutation.ClearOwner()
+	return bu
 }
 
 // Save executes the query and returns the number of rows/vertices matched by this operation.
@@ -185,11 +225,17 @@ func (bu *BookUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Column: book.FieldBookID,
 		})
 	}
-	if value, ok := bu.mutation.Title(); ok {
+	if bu.mutation.BookIDCleared() {
+		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Column: book.FieldBookID,
+		})
+	}
+	if value, ok := bu.mutation.Name(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeString,
 			Value:  value,
-			Column: book.FieldTitle,
+			Column: book.FieldName,
 		})
 	}
 	if value, ok := bu.mutation.Description(); ok {
@@ -267,6 +313,41 @@ func (bu *BookUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if bu.mutation.OwnerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   book.OwnerTable,
+			Columns: []string{book.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUUID,
+					Column: user.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := bu.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   book.OwnerTable,
+			Columns: []string{book.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUUID,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, bu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{book.Label}
@@ -291,9 +372,23 @@ func (buo *BookUpdateOne) SetBookID(s string) *BookUpdateOne {
 	return buo
 }
 
-// SetTitle sets the title field.
-func (buo *BookUpdateOne) SetTitle(s string) *BookUpdateOne {
-	buo.mutation.SetTitle(s)
+// SetNillableBookID sets the book_id field if the given value is not nil.
+func (buo *BookUpdateOne) SetNillableBookID(s *string) *BookUpdateOne {
+	if s != nil {
+		buo.SetBookID(*s)
+	}
+	return buo
+}
+
+// ClearBookID clears the value of book_id.
+func (buo *BookUpdateOne) ClearBookID() *BookUpdateOne {
+	buo.mutation.ClearBookID()
+	return buo
+}
+
+// SetName sets the name field.
+func (buo *BookUpdateOne) SetName(s string) *BookUpdateOne {
+	buo.mutation.SetName(s)
 	return buo
 }
 
@@ -338,6 +433,25 @@ func (buo *BookUpdateOne) AddVocas(v ...*Voca) *BookUpdateOne {
 	return buo.AddVocaIDs(ids...)
 }
 
+// SetOwnerID sets the owner edge to User by id.
+func (buo *BookUpdateOne) SetOwnerID(id uuid.UUID) *BookUpdateOne {
+	buo.mutation.SetOwnerID(id)
+	return buo
+}
+
+// SetNillableOwnerID sets the owner edge to User by id if the given value is not nil.
+func (buo *BookUpdateOne) SetNillableOwnerID(id *uuid.UUID) *BookUpdateOne {
+	if id != nil {
+		buo = buo.SetOwnerID(*id)
+	}
+	return buo
+}
+
+// SetOwner sets the owner edge to User.
+func (buo *BookUpdateOne) SetOwner(u *User) *BookUpdateOne {
+	return buo.SetOwnerID(u.ID)
+}
+
 // Mutation returns the BookMutation object of the builder.
 func (buo *BookUpdateOne) Mutation() *BookMutation {
 	return buo.mutation
@@ -362,6 +476,12 @@ func (buo *BookUpdateOne) RemoveVocas(v ...*Voca) *BookUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return buo.RemoveVocaIDs(ids...)
+}
+
+// ClearOwner clears the "owner" edge to type User.
+func (buo *BookUpdateOne) ClearOwner() *BookUpdateOne {
+	buo.mutation.ClearOwner()
+	return buo
 }
 
 // Save executes the query and returns the updated entity.
@@ -438,11 +558,17 @@ func (buo *BookUpdateOne) sqlSave(ctx context.Context) (_node *Book, err error) 
 			Column: book.FieldBookID,
 		})
 	}
-	if value, ok := buo.mutation.Title(); ok {
+	if buo.mutation.BookIDCleared() {
+		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
+			Type:   field.TypeString,
+			Column: book.FieldBookID,
+		})
+	}
+	if value, ok := buo.mutation.Name(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeString,
 			Value:  value,
-			Column: book.FieldTitle,
+			Column: book.FieldName,
 		})
 	}
 	if value, ok := buo.mutation.Description(); ok {
@@ -512,6 +638,41 @@ func (buo *BookUpdateOne) sqlSave(ctx context.Context) (_node *Book, err error) 
 				IDSpec: &sqlgraph.FieldSpec{
 					Type:   field.TypeUUID,
 					Column: voca.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if buo.mutation.OwnerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   book.OwnerTable,
+			Columns: []string{book.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUUID,
+					Column: user.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := buo.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   book.OwnerTable,
+			Columns: []string{book.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUUID,
+					Column: user.FieldID,
 				},
 			},
 		}

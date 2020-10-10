@@ -10,6 +10,7 @@ import (
 	"github.com/facebook/ent/dialect/sql"
 	"github.com/facebook/ent/dialect/sql/sqlgraph"
 	"github.com/facebook/ent/schema/field"
+	"lang.pkg/ent/book"
 	"lang.pkg/ent/predicate"
 	"lang.pkg/ent/user"
 )
@@ -60,9 +61,45 @@ func (uu *UserUpdate) SetNillableCreatedAt(t *time.Time) *UserUpdate {
 	return uu
 }
 
+// AddBookIDs adds the books edge to Book by ids.
+func (uu *UserUpdate) AddBookIDs(ids ...int) *UserUpdate {
+	uu.mutation.AddBookIDs(ids...)
+	return uu
+}
+
+// AddBooks adds the books edges to Book.
+func (uu *UserUpdate) AddBooks(b ...*Book) *UserUpdate {
+	ids := make([]int, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return uu.AddBookIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (uu *UserUpdate) Mutation() *UserMutation {
 	return uu.mutation
+}
+
+// ClearBooks clears all "books" edges to type Book.
+func (uu *UserUpdate) ClearBooks() *UserUpdate {
+	uu.mutation.ClearBooks()
+	return uu
+}
+
+// RemoveBookIDs removes the books edge to Book by ids.
+func (uu *UserUpdate) RemoveBookIDs(ids ...int) *UserUpdate {
+	uu.mutation.RemoveBookIDs(ids...)
+	return uu
+}
+
+// RemoveBooks removes books edges to Book.
+func (uu *UserUpdate) RemoveBooks(b ...*Book) *UserUpdate {
+	ids := make([]int, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return uu.RemoveBookIDs(ids...)
 }
 
 // Save executes the query and returns the number of rows/vertices matched by this operation.
@@ -162,6 +199,60 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Column: user.FieldCreatedAt,
 		})
 	}
+	if uu.mutation.BooksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BooksTable,
+			Columns: []string{user.BooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: book.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedBooksIDs(); len(nodes) > 0 && !uu.mutation.BooksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BooksTable,
+			Columns: []string{user.BooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: book.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.BooksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BooksTable,
+			Columns: []string{user.BooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: book.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if n, err = sqlgraph.UpdateNodes(ctx, uu.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{user.Label}
@@ -212,9 +303,45 @@ func (uuo *UserUpdateOne) SetNillableCreatedAt(t *time.Time) *UserUpdateOne {
 	return uuo
 }
 
+// AddBookIDs adds the books edge to Book by ids.
+func (uuo *UserUpdateOne) AddBookIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.AddBookIDs(ids...)
+	return uuo
+}
+
+// AddBooks adds the books edges to Book.
+func (uuo *UserUpdateOne) AddBooks(b ...*Book) *UserUpdateOne {
+	ids := make([]int, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return uuo.AddBookIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (uuo *UserUpdateOne) Mutation() *UserMutation {
 	return uuo.mutation
+}
+
+// ClearBooks clears all "books" edges to type Book.
+func (uuo *UserUpdateOne) ClearBooks() *UserUpdateOne {
+	uuo.mutation.ClearBooks()
+	return uuo
+}
+
+// RemoveBookIDs removes the books edge to Book by ids.
+func (uuo *UserUpdateOne) RemoveBookIDs(ids ...int) *UserUpdateOne {
+	uuo.mutation.RemoveBookIDs(ids...)
+	return uuo
+}
+
+// RemoveBooks removes books edges to Book.
+func (uuo *UserUpdateOne) RemoveBooks(b ...*Book) *UserUpdateOne {
+	ids := make([]int, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return uuo.RemoveBookIDs(ids...)
 }
 
 // Save executes the query and returns the updated entity.
@@ -311,6 +438,60 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 			Value:  value,
 			Column: user.FieldCreatedAt,
 		})
+	}
+	if uuo.mutation.BooksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BooksTable,
+			Columns: []string{user.BooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: book.FieldID,
+				},
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedBooksIDs(); len(nodes) > 0 && !uuo.mutation.BooksCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BooksTable,
+			Columns: []string{user.BooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: book.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.BooksIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.BooksTable,
+			Columns: []string{user.BooksColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: book.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &User{config: uuo.config}
 	_spec.Assign = _node.assignValues

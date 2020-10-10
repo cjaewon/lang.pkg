@@ -12,6 +12,7 @@ import (
 	"github.com/facebook/ent/schema/field"
 	"github.com/google/uuid"
 	"lang.pkg/ent/book"
+	"lang.pkg/ent/user"
 	"lang.pkg/ent/voca"
 )
 
@@ -28,9 +29,17 @@ func (bc *BookCreate) SetBookID(s string) *BookCreate {
 	return bc
 }
 
-// SetTitle sets the title field.
-func (bc *BookCreate) SetTitle(s string) *BookCreate {
-	bc.mutation.SetTitle(s)
+// SetNillableBookID sets the book_id field if the given value is not nil.
+func (bc *BookCreate) SetNillableBookID(s *string) *BookCreate {
+	if s != nil {
+		bc.SetBookID(*s)
+	}
+	return bc
+}
+
+// SetName sets the name field.
+func (bc *BookCreate) SetName(s string) *BookCreate {
+	bc.mutation.SetName(s)
 	return bc
 }
 
@@ -79,6 +88,25 @@ func (bc *BookCreate) AddVocas(v ...*Voca) *BookCreate {
 		ids[i] = v[i].ID
 	}
 	return bc.AddVocaIDs(ids...)
+}
+
+// SetOwnerID sets the owner edge to User by id.
+func (bc *BookCreate) SetOwnerID(id uuid.UUID) *BookCreate {
+	bc.mutation.SetOwnerID(id)
+	return bc
+}
+
+// SetNillableOwnerID sets the owner edge to User by id if the given value is not nil.
+func (bc *BookCreate) SetNillableOwnerID(id *uuid.UUID) *BookCreate {
+	if id != nil {
+		bc = bc.SetOwnerID(*id)
+	}
+	return bc
+}
+
+// SetOwner sets the owner edge to User.
+func (bc *BookCreate) SetOwner(u *User) *BookCreate {
+	return bc.SetOwnerID(u.ID)
 }
 
 // Mutation returns the BookMutation object of the builder.
@@ -141,11 +169,8 @@ func (bc *BookCreate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (bc *BookCreate) check() error {
-	if _, ok := bc.mutation.BookID(); !ok {
-		return &ValidationError{Name: "book_id", err: errors.New("ent: missing required field \"book_id\"")}
-	}
-	if _, ok := bc.mutation.Title(); !ok {
-		return &ValidationError{Name: "title", err: errors.New("ent: missing required field \"title\"")}
+	if _, ok := bc.mutation.Name(); !ok {
+		return &ValidationError{Name: "name", err: errors.New("ent: missing required field \"name\"")}
 	}
 	if _, ok := bc.mutation.Description(); !ok {
 		return &ValidationError{Name: "description", err: errors.New("ent: missing required field \"description\"")}
@@ -195,15 +220,15 @@ func (bc *BookCreate) createSpec() (*Book, *sqlgraph.CreateSpec) {
 			Value:  value,
 			Column: book.FieldBookID,
 		})
-		_node.BookID = value
+		_node.BookID = &value
 	}
-	if value, ok := bc.mutation.Title(); ok {
+	if value, ok := bc.mutation.Name(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
 			Type:   field.TypeString,
 			Value:  value,
-			Column: book.FieldTitle,
+			Column: book.FieldName,
 		})
-		_node.Title = value
+		_node.Name = value
 	}
 	if value, ok := bc.mutation.Description(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
@@ -240,6 +265,25 @@ func (bc *BookCreate) createSpec() (*Book, *sqlgraph.CreateSpec) {
 				IDSpec: &sqlgraph.FieldSpec{
 					Type:   field.TypeUUID,
 					Column: voca.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := bc.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   book.OwnerTable,
+			Columns: []string{book.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeUUID,
+					Column: user.FieldID,
 				},
 			},
 		}
