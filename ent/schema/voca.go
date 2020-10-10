@@ -5,6 +5,7 @@ import (
 
 	"github.com/facebook/ent"
 	"github.com/facebook/ent/schema/field"
+	"github.com/facebook/ent/schema/index"
 	"github.com/google/uuid"
 )
 
@@ -32,4 +33,11 @@ func (Voca) Fields() []ent.Field {
 // Edges of the Voca.
 func (Voca) Edges() []ent.Edge {
 	return nil
+}
+
+// Indexes of the Voca
+func (Voca) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("created_at"),
+	}
 }
