@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
 	"lang.pkg/ent"
@@ -38,7 +39,6 @@ func (app *Book) createBook(s *discordgo.Session, m *discordgo.MessageCreate, cm
 
 	title := ""
 	public := true
-	// code := lib.GenerateRandKey(6)
 
 	if !strings.Contains(args[0], "단어장") {
 		title = args[0] + " 단어장"
@@ -52,6 +52,7 @@ func (app *Book) createBook(s *discordgo.Session, m *discordgo.MessageCreate, cm
 
 	book, err := app.client.Book.
 		Create().
+		SetBookID(uuid.New().String()).
 		SetTitle(title).
 		SetDescription(args[1]).
 		SetPublic(public).
@@ -70,7 +71,7 @@ func (app *Book) createBook(s *discordgo.Session, m *discordgo.MessageCreate, cm
 
 	s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
 		Title:       "📚 " + title,
-		Description: args[1],
+		Description: "__" + args[1] + "__",
 		Color:       0x70a1ff,
 		Fields: []*discordgo.MessageEmbedField{
 			{
@@ -84,9 +85,11 @@ func (app *Book) createBook(s *discordgo.Session, m *discordgo.MessageCreate, cm
 				Inline: true,
 			},
 			{
-				Name:  "코드",
-				Value: book.BookID,
+				Name:   "코드",
+				Value:  "`" + book.BookID + "`",
+				Inline: true,
 			},
 		},
 	})
+	// Add TimeStamp
 }

@@ -44,7 +44,7 @@ func main() {
 
 	discord.AddHandler(messageCreate)
 	discord.AddHandlerOnce(func(s *discordgo.Session, r *discordgo.Ready) {
-		s.UpdateListeningStatus("✅ !help / 영어듣기평가")
+		s.UpdateListeningStatus("🦄 !help / 영어듣기평가")
 	})
 
 	if err := discord.Open(); err != nil {

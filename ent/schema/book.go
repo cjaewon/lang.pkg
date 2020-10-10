@@ -17,7 +17,8 @@ type Book struct {
 func (Book) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int("id"), // auto increment primary key not uuid
-		field.String("book_id"),
+		field.String("book_id").
+			Unique(),
 		field.String("title"),
 		field.String("description"),
 		field.Bool("public"),
