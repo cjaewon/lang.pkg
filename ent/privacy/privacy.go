@@ -210,6 +210,30 @@ func DenyMutationOperationRule(op ent.Op) MutationRule {
 	return OnMutationOperation(rule, op)
 }
 
+// The BookQueryRuleFunc type is an adapter to allow the use of ordinary
+// functions as a query rule.
+type BookQueryRuleFunc func(context.Context, *ent.BookQuery) error
+
+// EvalQuery return f(ctx, q).
+func (f BookQueryRuleFunc) EvalQuery(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.BookQuery); ok {
+		return f(ctx, q)
+	}
+	return Denyf("ent/privacy: unexpected query type %T, expect *ent.BookQuery", q)
+}
+
+// The BookMutationRuleFunc type is an adapter to allow the use of ordinary
+// functions as a mutation rule.
+type BookMutationRuleFunc func(context.Context, *ent.BookMutation) error
+
+// EvalMutation calls f(ctx, m).
+func (f BookMutationRuleFunc) EvalMutation(ctx context.Context, m ent.Mutation) error {
+	if m, ok := m.(*ent.BookMutation); ok {
+		return f(ctx, m)
+	}
+	return Denyf("ent/privacy: unexpected mutation type %T, expect *ent.BookMutation", m)
+}
+
 // The UserQueryRuleFunc type is an adapter to allow the use of ordinary
 // functions as a query rule.
 type UserQueryRuleFunc func(context.Context, *ent.UserQuery) error
@@ -232,4 +256,28 @@ func (f UserMutationRuleFunc) EvalMutation(ctx context.Context, m ent.Mutation) 
 		return f(ctx, m)
 	}
 	return Denyf("ent/privacy: unexpected mutation type %T, expect *ent.UserMutation", m)
+}
+
+// The VocaQueryRuleFunc type is an adapter to allow the use of ordinary
+// functions as a query rule.
+type VocaQueryRuleFunc func(context.Context, *ent.VocaQuery) error
+
+// EvalQuery return f(ctx, q).
+func (f VocaQueryRuleFunc) EvalQuery(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.VocaQuery); ok {
+		return f(ctx, q)
+	}
+	return Denyf("ent/privacy: unexpected query type %T, expect *ent.VocaQuery", q)
+}
+
+// The VocaMutationRuleFunc type is an adapter to allow the use of ordinary
+// functions as a mutation rule.
+type VocaMutationRuleFunc func(context.Context, *ent.VocaMutation) error
+
+// EvalMutation calls f(ctx, m).
+func (f VocaMutationRuleFunc) EvalMutation(ctx context.Context, m ent.Mutation) error {
+	if m, ok := m.(*ent.VocaMutation); ok {
+		return f(ctx, m)
+	}
+	return Denyf("ent/privacy: unexpected mutation type %T, expect *ent.VocaMutation", m)
 }

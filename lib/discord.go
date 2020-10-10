@@ -2,9 +2,11 @@ package lib
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/bwmarrin/discordgo"
+	"lang.pkg/router"
 )
 
 // MessageFilter : Filter function Type
@@ -60,4 +62,18 @@ func WaitForReaction(ctx context.Context, s *discordgo.Session, filter ReactionF
 	case r := <-c:
 		return r
 	}
+}
+
+// CommandError : Send Command Error
+func CommandError(s *discordgo.Session, m *discordgo.MessageCreate, cmd *router.CommandStruct) {
+	s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
+		Title:       "잘못 된 명령어",
+		Description: "❌ 명령어를 잘못 사용하였어요.",
+		Fields: []*discordgo.MessageEmbedField{
+			{
+				Name:  "명령어 사용법",
+				Value: fmt.Sprintf("`%s`", cmd.Help),
+			},
+		},
+	})
 }

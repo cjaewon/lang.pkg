@@ -14,7 +14,7 @@ type CommandStruct struct {
 	Help  string
 
 	PreRun func(s *discordgo.Session, m *discordgo.MessageCreate) bool
-	Run    func(s *discordgo.Session, m *discordgo.MessageCreate)
+	Run    func(s *discordgo.Session, m *discordgo.MessageCreate, cmd *CommandStruct)
 }
 
 var commands map[string]*CommandStruct = map[string]*CommandStruct{}
@@ -31,13 +31,13 @@ func Run(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	if cmd.PreRun != nil {
 		if cmd.PreRun(s, m) {
-			cmd.Run(s, m)
+			cmd.Run(s, m, cmd)
 		}
 
 		return
 	}
 
-	cmd.Run(s, m)
+	cmd.Run(s, m, cmd)
 }
 
 // Add : Add Command

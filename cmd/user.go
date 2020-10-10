@@ -28,13 +28,14 @@ func (app User) Init() {
 	})
 }
 
-func (app *User) signUp(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if user, _ := app.client.User.Query().Where(user.IDEQ(m.Author.ID)).First(context.Background()); user != nil {
+func (app *User) signUp(s *discordgo.Session, m *discordgo.MessageCreate, cmd *router.CommandStruct) {
+	user, _ := app.client.User.Query().Where(user.UserIDEQ(m.Author.ID)).First(context.Background())
+	if user != nil {
 		s.ChannelMessageSend(m.ChannelID, "🗳️ 이미 가입하셨어요.")
 		return
 	}
 
-	embed := discordgo.MessageEmbed{
+	embedMsg, _ := s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
 		Title:       "계정 생성",
 		Description: "계정을 생성하시면 lang.pkg의 다양한 기능을 이용하실 수 있어요.",
 		Fields: []*discordgo.MessageEmbedField{
@@ -43,9 +44,8 @@ func (app *User) signUp(s *discordgo.Session, m *discordgo.MessageCreate) {
 				Value: "✅ 이모지를 눌러주시면 [약관](http://example.org/)에 동의하고 가입이 됩니다.",
 			},
 		},
-	}
+	})
 
-	embedMsg, _ := s.ChannelMessageSendEmbed(m.ChannelID, &embed)
 	s.MessageReactionAdd(embedMsg.ChannelID, embedMsg.ID, "✅")
 
 	ctx, cancle := context.WithTimeout(context.Background(), 3*time.Minute)
@@ -59,7 +59,7 @@ func (app *User) signUp(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	_, err := app.client.User.
 		Create().
-		SetID(m.Author.ID).
+		SetUserID(m.Author.ID).
 		SetUsername(m.Author.Username).
 		SetThumbnail(m.Author.AvatarURL("256")).
 		Save(context.Background())
@@ -69,7 +69,9 @@ func (app *User) signUp(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
+	lib.SignUpCache[m.Author.ID] = true
+
+	s.ChannelMessageEditEmbed(m.ChannelID, embedMsg.ID, &discordgo.MessageEmbed{
 		Title:       "Welcome",
 		Description: "🥳 lang.pkg 계정이 생성되었습니다!",
 		Fields: []*discordgo.MessageEmbedField{

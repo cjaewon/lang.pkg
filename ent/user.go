@@ -5,8 +5,10 @@ package ent
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/facebook/ent/dialect/sql"
+	"github.com/google/uuid"
 	"lang.pkg/ent/user"
 )
 
@@ -14,19 +16,25 @@ import (
 type User struct {
 	config `json:"-"`
 	// ID of the ent.
-	ID string `json:"id,omitempty"`
+	ID uuid.UUID `json:"id,omitempty"`
+	// UserID holds the value of the "user_id" field.
+	UserID string `json:"user_id,omitempty"`
 	// Username holds the value of the "username" field.
 	Username string `json:"username,omitempty"`
 	// Thumbnail holds the value of the "thumbnail" field.
 	Thumbnail string `json:"thumbnail,omitempty"`
+	// CreatedAt holds the value of the "created_at" field.
+	CreatedAt time.Time `json:"created_at,omitempty"`
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
 func (*User) scanValues() []interface{} {
 	return []interface{}{
-		&sql.NullString{}, // id
+		&uuid.UUID{},      // id
+		&sql.NullString{}, // user_id
 		&sql.NullString{}, // username
 		&sql.NullString{}, // thumbnail
+		&sql.NullTime{},   // created_at
 	}
 }
 
@@ -36,21 +44,31 @@ func (u *User) assignValues(values ...interface{}) error {
 	if m, n := len(values), len(user.Columns); m < n {
 		return fmt.Errorf("mismatch number of scan values: %d != %d", m, n)
 	}
-	if value, ok := values[0].(*sql.NullString); !ok {
+	if value, ok := values[0].(*uuid.UUID); !ok {
 		return fmt.Errorf("unexpected type %T for field id", values[0])
-	} else if value.Valid {
-		u.ID = value.String
+	} else if value != nil {
+		u.ID = *value
 	}
 	values = values[1:]
 	if value, ok := values[0].(*sql.NullString); !ok {
-		return fmt.Errorf("unexpected type %T for field username", values[0])
+		return fmt.Errorf("unexpected type %T for field user_id", values[0])
+	} else if value.Valid {
+		u.UserID = value.String
+	}
+	if value, ok := values[1].(*sql.NullString); !ok {
+		return fmt.Errorf("unexpected type %T for field username", values[1])
 	} else if value.Valid {
 		u.Username = value.String
 	}
-	if value, ok := values[1].(*sql.NullString); !ok {
-		return fmt.Errorf("unexpected type %T for field thumbnail", values[1])
+	if value, ok := values[2].(*sql.NullString); !ok {
+		return fmt.Errorf("unexpected type %T for field thumbnail", values[2])
 	} else if value.Valid {
 		u.Thumbnail = value.String
+	}
+	if value, ok := values[3].(*sql.NullTime); !ok {
+		return fmt.Errorf("unexpected type %T for field created_at", values[3])
+	} else if value.Valid {
+		u.CreatedAt = value.Time
 	}
 	return nil
 }
@@ -78,10 +96,14 @@ func (u *User) String() string {
 	var builder strings.Builder
 	builder.WriteString("User(")
 	builder.WriteString(fmt.Sprintf("id=%v", u.ID))
+	builder.WriteString(", user_id=")
+	builder.WriteString(u.UserID)
 	builder.WriteString(", username=")
 	builder.WriteString(u.Username)
 	builder.WriteString(", thumbnail=")
 	builder.WriteString(u.Thumbnail)
+	builder.WriteString(", created_at=")
+	builder.WriteString(u.CreatedAt.Format(time.ANSIC))
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/facebook/ent"
 	"github.com/facebook/ent/schema/field"
-	"lang.pkg/lib"
+	"github.com/google/uuid"
 )
 
 // Voca holds the schema definition for the Voca entity.
@@ -16,9 +16,8 @@ type Voca struct {
 // Fields of the Voca.
 func (Voca) Fields() []ent.Field {
 	return []ent.Field{
-		field.String("id").
-			Unique().
-			Default(lib.GenerateRandKey(5)),
+		field.UUID("id", uuid.UUID{}).
+			Default(uuid.New),
 		field.String("key"),
 		field.String("value"),
 		field.String("example"),

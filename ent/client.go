@@ -9,10 +9,14 @@ import (
 
 	"lang.pkg/ent/migrate"
 
+	"lang.pkg/ent/book"
 	"lang.pkg/ent/user"
+	"lang.pkg/ent/voca"
 
 	"github.com/facebook/ent/dialect"
 	"github.com/facebook/ent/dialect/sql"
+	"github.com/facebook/ent/dialect/sql/sqlgraph"
+	"github.com/google/uuid"
 )
 
 // Client is the client that holds all ent builders.
@@ -20,8 +24,12 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// Book is the client for interacting with the Book builders.
+	Book *BookClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// Voca is the client for interacting with the Voca builders.
+	Voca *VocaClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -35,7 +43,9 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.Book = NewBookClient(c.config)
 	c.User = NewUserClient(c.config)
+	c.Voca = NewVocaClient(c.config)
 }
 
 // Open opens a database/sql.DB specified by the driver name and
@@ -68,7 +78,9 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	return &Tx{
 		ctx:    ctx,
 		config: cfg,
+		Book:   NewBookClient(cfg),
 		User:   NewUserClient(cfg),
+		Voca:   NewVocaClient(cfg),
 	}, nil
 }
 
@@ -84,14 +96,16 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := config{driver: &txDriver{tx: tx, drv: c.driver}, log: c.log, debug: c.debug, hooks: c.hooks}
 	return &Tx{
 		config: cfg,
+		Book:   NewBookClient(cfg),
 		User:   NewUserClient(cfg),
+		Voca:   NewVocaClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		User.
+//		Book.
 //		Query().
 //		Count(ctx)
 //
@@ -113,7 +127,113 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
+	c.Book.Use(hooks...)
 	c.User.Use(hooks...)
+	c.Voca.Use(hooks...)
+}
+
+// BookClient is a client for the Book schema.
+type BookClient struct {
+	config
+}
+
+// NewBookClient returns a client for the Book from the given config.
+func NewBookClient(c config) *BookClient {
+	return &BookClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `book.Hooks(f(g(h())))`.
+func (c *BookClient) Use(hooks ...Hook) {
+	c.hooks.Book = append(c.hooks.Book, hooks...)
+}
+
+// Create returns a create builder for Book.
+func (c *BookClient) Create() *BookCreate {
+	mutation := newBookMutation(c.config, OpCreate)
+	return &BookCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// BulkCreate returns a builder for creating a bulk of Book entities.
+func (c *BookClient) CreateBulk(builders ...*BookCreate) *BookCreateBulk {
+	return &BookCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Book.
+func (c *BookClient) Update() *BookUpdate {
+	mutation := newBookMutation(c.config, OpUpdate)
+	return &BookUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *BookClient) UpdateOne(b *Book) *BookUpdateOne {
+	mutation := newBookMutation(c.config, OpUpdateOne, withBook(b))
+	return &BookUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *BookClient) UpdateOneID(id int) *BookUpdateOne {
+	mutation := newBookMutation(c.config, OpUpdateOne, withBookID(id))
+	return &BookUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Book.
+func (c *BookClient) Delete() *BookDelete {
+	mutation := newBookMutation(c.config, OpDelete)
+	return &BookDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a delete builder for the given entity.
+func (c *BookClient) DeleteOne(b *Book) *BookDeleteOne {
+	return c.DeleteOneID(b.ID)
+}
+
+// DeleteOneID returns a delete builder for the given id.
+func (c *BookClient) DeleteOneID(id int) *BookDeleteOne {
+	builder := c.Delete().Where(book.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &BookDeleteOne{builder}
+}
+
+// Query returns a query builder for Book.
+func (c *BookClient) Query() *BookQuery {
+	return &BookQuery{config: c.config}
+}
+
+// Get returns a Book entity by its id.
+func (c *BookClient) Get(ctx context.Context, id int) (*Book, error) {
+	return c.Query().Where(book.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *BookClient) GetX(ctx context.Context, id int) *Book {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryVocas queries the vocas edge of a Book.
+func (c *BookClient) QueryVocas(b *Book) *VocaQuery {
+	query := &VocaQuery{config: c.config}
+	query.path = func(ctx context.Context) (fromV *sql.Selector, _ error) {
+		id := b.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(book.Table, book.FieldID, id),
+			sqlgraph.To(voca.Table, voca.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, book.VocasTable, book.VocasColumn),
+		)
+		fromV = sqlgraph.Neighbors(b.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *BookClient) Hooks() []Hook {
+	return c.hooks.Book
 }
 
 // UserClient is a client for the User schema.
@@ -156,7 +276,7 @@ func (c *UserClient) UpdateOne(u *User) *UserUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *UserClient) UpdateOneID(id string) *UserUpdateOne {
+func (c *UserClient) UpdateOneID(id uuid.UUID) *UserUpdateOne {
 	mutation := newUserMutation(c.config, OpUpdateOne, withUserID(id))
 	return &UserUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -173,7 +293,7 @@ func (c *UserClient) DeleteOne(u *User) *UserDeleteOne {
 }
 
 // DeleteOneID returns a delete builder for the given id.
-func (c *UserClient) DeleteOneID(id string) *UserDeleteOne {
+func (c *UserClient) DeleteOneID(id uuid.UUID) *UserDeleteOne {
 	builder := c.Delete().Where(user.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -186,12 +306,12 @@ func (c *UserClient) Query() *UserQuery {
 }
 
 // Get returns a User entity by its id.
-func (c *UserClient) Get(ctx context.Context, id string) (*User, error) {
+func (c *UserClient) Get(ctx context.Context, id uuid.UUID) (*User, error) {
 	return c.Query().Where(user.ID(id)).Only(ctx)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *UserClient) GetX(ctx context.Context, id string) *User {
+func (c *UserClient) GetX(ctx context.Context, id uuid.UUID) *User {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
@@ -202,4 +322,92 @@ func (c *UserClient) GetX(ctx context.Context, id string) *User {
 // Hooks returns the client hooks.
 func (c *UserClient) Hooks() []Hook {
 	return c.hooks.User
+}
+
+// VocaClient is a client for the Voca schema.
+type VocaClient struct {
+	config
+}
+
+// NewVocaClient returns a client for the Voca from the given config.
+func NewVocaClient(c config) *VocaClient {
+	return &VocaClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `voca.Hooks(f(g(h())))`.
+func (c *VocaClient) Use(hooks ...Hook) {
+	c.hooks.Voca = append(c.hooks.Voca, hooks...)
+}
+
+// Create returns a create builder for Voca.
+func (c *VocaClient) Create() *VocaCreate {
+	mutation := newVocaMutation(c.config, OpCreate)
+	return &VocaCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// BulkCreate returns a builder for creating a bulk of Voca entities.
+func (c *VocaClient) CreateBulk(builders ...*VocaCreate) *VocaCreateBulk {
+	return &VocaCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Voca.
+func (c *VocaClient) Update() *VocaUpdate {
+	mutation := newVocaMutation(c.config, OpUpdate)
+	return &VocaUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *VocaClient) UpdateOne(v *Voca) *VocaUpdateOne {
+	mutation := newVocaMutation(c.config, OpUpdateOne, withVoca(v))
+	return &VocaUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *VocaClient) UpdateOneID(id uuid.UUID) *VocaUpdateOne {
+	mutation := newVocaMutation(c.config, OpUpdateOne, withVocaID(id))
+	return &VocaUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Voca.
+func (c *VocaClient) Delete() *VocaDelete {
+	mutation := newVocaMutation(c.config, OpDelete)
+	return &VocaDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a delete builder for the given entity.
+func (c *VocaClient) DeleteOne(v *Voca) *VocaDeleteOne {
+	return c.DeleteOneID(v.ID)
+}
+
+// DeleteOneID returns a delete builder for the given id.
+func (c *VocaClient) DeleteOneID(id uuid.UUID) *VocaDeleteOne {
+	builder := c.Delete().Where(voca.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &VocaDeleteOne{builder}
+}
+
+// Query returns a query builder for Voca.
+func (c *VocaClient) Query() *VocaQuery {
+	return &VocaQuery{config: c.config}
+}
+
+// Get returns a Voca entity by its id.
+func (c *VocaClient) Get(ctx context.Context, id uuid.UUID) (*Voca, error) {
+	return c.Query().Where(voca.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *VocaClient) GetX(ctx context.Context, id uuid.UUID) *Voca {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *VocaClient) Hooks() []Hook {
+	return c.hooks.Voca
 }
