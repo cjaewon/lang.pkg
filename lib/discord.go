@@ -65,6 +65,13 @@ func WaitForReaction(ctx context.Context, s *discordgo.Session, filter ReactionF
 	}
 }
 
+// MessageBotReactionRemove : Remove Bot Reaction (emoji)
+func MessageBotReactionRemove(s *discordgo.Session, m *discordgo.Message, emojis ...string) {
+	for _, emoji := range emojis {
+		s.MessageReactionRemove(m.ChannelID, m.ID, emoji, s.State.Ready.User.ID)
+	}
+}
+
 // CommandError : Send Command Error
 func CommandError(s *discordgo.Session, m *discordgo.MessageCreate, cmd *router.CommandStruct) {
 	s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{

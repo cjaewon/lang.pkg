@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"text/template"
 	"time"
 
@@ -89,24 +90,37 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 	entity := app.client.Book.Query().
 		Where(book.BookIDEQ((args[0])))
 
-	if len(args) == 1 || len(args) > 1 && args[1] == "list" {
-		book, err := entity.First(context.Background())
-		if err != nil {
-			log.Errorf("Failed querying book : %v", err)
-			return
-		}
+	book, err := entity.First(context.Background())
+	if err != nil {
+		log.Errorf("Failed querying voca : %v", err)
+		return
+	}
 
-		vocas, err := book.QueryVocas().Order(ent.Asc("created_at")).All(context.Background())
-		if err != nil {
-			log.Errorf("Failed querying voca : %v", err)
-			return
-		}
+	vocasCount, err := entity.QueryVocas().Count(context.Background())
+	if err != nil {
+		log.Errorf("Failed querying book : %v", err)
+		return
+	}
 
+	var pagination int = 1
+
+	vocas, err := book.
+		QueryVocas().
+		Order(ent.Asc("created_at")).
+		Limit(30).
+		All(context.Background())
+
+	if err != nil {
+		log.Errorf("Failed querying voca : %v", err)
+		return
+	}
+
+	if len(args) == 1 || args[1] == "list" {
 		tmpl, err := template.
 			New("vocas").
 			Funcs(template.FuncMap{
 				"inc": func(i int) int {
-					return i + 1
+					return (pagination-1)*30 + i + 1
 				},
 			}).
 			Parse(fmt.Sprintf("```md\n# %s / 코드: %s / 단어 %d개 \n\n{{ range $i, $v := . }}{{ inc $i }}.[{{ $v.Key }}]({{ $v.Value }}){{ with $v.Example }}\n* 예문: {{ $v.Example }}{{ end }}\n{{ end }}```", book.Name, *book.BookID, len(vocas)))
@@ -116,28 +130,62 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 			return
 		}
 
-		// TODO: response가 2000자를 넘어갈경우 잘라서 페이지네이션을 구현해야 함
 		var response bytes.Buffer
 		if err := tmpl.Execute(&response, vocas); err != nil {
 			log.Errorf("Failed executing template : %v", err)
 			return
 		}
 
-		s.ChannelMessageSend(m.ChannelID, response.String())
+		msg, _ := s.ChannelMessageSend(m.ChannelID, response.String())
+
+		if vocasCount > 30 {
+			s.MessageReactionAdd(m.ChannelID, msg.ID, "◀️")
+			s.MessageReactionAdd(m.ChannelID, msg.ID, "▶️")
+			s.MessageReactionAdd(m.ChannelID, msg.ID, "❌")
+
+			for {
+				ctx, cancle := context.WithTimeout(context.Background(), 5*time.Minute)
+
+				reaction := lib.WaitForReaction(ctx, s, func(r *discordgo.MessageReactionAdd) bool {
+					return r.UserID == m.Author.ID && msg.ID == r.MessageID && r.Emoji.Name == "◀️" || r.Emoji.Name == "▶️" || r.Emoji.Name == "❌"
+				})
+
+				cancle()
+				fmt.Println(reaction.Emoji.Name)
+
+				if reaction == nil || reaction.Emoji.Name == "❌" {
+					break
+				}
+
+				if reaction.Emoji.Name == "◀️" {
+					if pagination <= 0 {
+						continue
+					}
+
+					pagination--
+					vocas, _ = entity.QueryVocas().Order(ent.Asc("created_at")).Offset((pagination - 1) * 30).Limit(pagination * 30).All(context.Background())
+				} else if reaction.Emoji.Name == "▶️" {
+					if pagination*30 >= vocasCount {
+						continue
+					}
+
+					pagination++
+					vocas, _ = entity.QueryVocas().Order(ent.Asc("created_at")).Offset((pagination - 1) * 30).Limit(pagination * 30).All(context.Background())
+				}
+
+				// Already Check
+				response = bytes.Buffer{}
+
+				_ = tmpl.Execute(&response, vocas)
+				s.ChannelMessageEdit(m.ChannelID, msg.ID, response.String())
+			}
+
+			lib.MessageBotReactionRemove(s, msg, "◀️", "▶️", "❌")
+		}
 	} else if len(args) > 1 && args[1] == "card" {
-		book, err := entity.First(context.Background())
-		if err != nil {
-			log.Errorf("Failed querying book : %v", err)
-			return
-		}
+		pagination-- // 카드가 존재하기 때문에 -1 로 시작
 
-		vocas, err := book.QueryVocas().Order(ent.Asc("created_at")).All(context.Background())
-		if err != nil {
-			log.Errorf("Failed querying voca : %v", err)
-			return
-		}
-
-		embedMsg, _ := s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
+		msg, _ := s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
 			Title:       "📚 " + book.Name,
 			Description: "__" + book.Description + "__",
 			Color:       0x70a1ff,
@@ -164,17 +212,15 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 			},
 		})
 
-		s.MessageReactionAdd(m.ChannelID, embedMsg.ID, "◀️")
-		s.MessageReactionAdd(m.ChannelID, embedMsg.ID, "▶️")
-		s.MessageReactionAdd(m.ChannelID, embedMsg.ID, "❌")
-
-		var pagination int = -1
+		s.MessageReactionAdd(m.ChannelID, msg.ID, "◀️")
+		s.MessageReactionAdd(m.ChannelID, msg.ID, "▶️")
+		s.MessageReactionAdd(m.ChannelID, msg.ID, "❌")
 
 		for {
 			ctx, cancle := context.WithTimeout(context.Background(), 3*time.Minute)
 
 			reaction := lib.WaitForReaction(ctx, s, func(r *discordgo.MessageReactionAdd) bool {
-				return r.UserID == m.Author.ID && embedMsg.ID == r.MessageID && r.Emoji.Name == "◀️" || r.Emoji.Name == "▶️" || r.Emoji.Name == "❌"
+				return r.UserID == m.Author.ID && msg.ID == r.MessageID && r.Emoji.Name == "◀️" || r.Emoji.Name == "▶️" || r.Emoji.Name == "❌"
 			})
 
 			cancle()
@@ -185,62 +231,56 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 
 			if reaction.Emoji.Name == "◀️" {
 				if pagination <= 0 {
-					s.ChannelMessageEditEmbed(m.ChannelID, embedMsg.ID, &discordgo.MessageEmbed{
-						Title:       "📚 " + book.Name,
-						Description: "__" + book.Description + "__",
-						Color:       0x70a1ff,
-						Fields: []*discordgo.MessageEmbedField{
-							{
-								Name:   "공개 여부",
-								Value:  map[bool]string{true: "🇴", false: "🇽"}[book.Public],
-								Inline: true,
-							},
-							{
-								Name:   "단어 개수",
-								Value:  strconv.Itoa(len(vocas)),
-								Inline: true,
-							},
-							{
-								Name:   "코드",
-								Value:  "`" + *book.BookID + "`",
-								Inline: true,
-							},
-							{
-								Name:  "사용 방법",
-								Value: "◀️▶️ 이모지를 이용하여 단어장을 넘겨보세요.",
-							},
-						},
-					})
+					s.ChannelMessageEditEmbed(m.ChannelID, msg.ID, msg.Embeds[0])
 
 					continue
 				}
 
 				pagination--
+
+				if pagination%30 == 0 {
+					vocas, _ = entity.QueryVocas().Order(ent.Asc("created_at")).Offset((pagination - 1) * 30).Limit(pagination * 30).All(context.Background())
+				}
 			} else if reaction.Emoji.Name == "▶️" {
-				if pagination >= len(vocas)-1 {
+				if pagination >= vocasCount-1 {
 					continue
+				}
+
+				if pagination%30 == 0 {
+					vocas, _ = entity.QueryVocas().Order(ent.Asc("created_at")).Offset((pagination - 1) * 30).Limit(pagination * 30).All(context.Background())
 				}
 
 				pagination++
 			}
 
-			s.ChannelMessageEditEmbed(m.ChannelID, embedMsg.ID, &discordgo.MessageEmbed{
+			voca := vocas[(pagination%30]
+
+			embed := discordgo.MessageEmbed{
 				Title: "📚 " + book.Name,
 				Fields: []*discordgo.MessageEmbedField{
 					{
 						Name:   "**단어**",
-						Value:  vocas[pagination].Key,
+						Value:  voca.Key,
 						Inline: true,
 					},
 					{
 						Name:   "**뜻**",
-						Value:  vocas[pagination].Value,
+						Value:  voca.Value,
 						Inline: true,
 					},
 				},
-			})
+			}
+
+			if voca.Example != nil {
+				embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+					Name:  "**예문**",
+					Value: strings.Replace(*voca.Example, voca.Key, "**"+voca.Key+"**", 1),
+				})
+			}
+
+			s.ChannelMessageEditEmbed(m.ChannelID, msg.ID, &embed)
 		}
 
-		s.MessageReactionsRemoveAll(m.ChannelID, embedMsg.ID)
+		lib.MessageBotReactionRemove(s, msg, "◀️", "▶️", "❌")
 	}
 }
