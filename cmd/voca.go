@@ -88,26 +88,18 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 	}
 
 	entity := app.client.Book.Query().
-		Where(book.BookIDEQ((args[0])))
+		Where(book.BookIDEQ((args[0]))).
+		WithOwner()
 
 	book, err := entity.First(context.Background())
-	if err != nil {
-		log.Errorf("Failed querying voca : %v", err)
-		return
-	}
-
-	vocasCount, err := entity.QueryVocas().Count(context.Background())
 	if err != nil {
 		log.Errorf("Failed querying book : %v", err)
 		return
 	}
 
-	var pagination int = 1
-
-	vocas, err := book.
+	vocas, err := entity.
 		QueryVocas().
 		Order(ent.Asc("created_at")).
-		Limit(30).
 		All(context.Background())
 
 	if err != nil {
@@ -115,15 +107,17 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 		return
 	}
 
+	var pagination int = 0
+
 	if len(args) == 1 || args[1] == "list" {
 		tmpl, err := template.
 			New("vocas").
 			Funcs(template.FuncMap{
-				"inc": func(i int) int {
-					return (pagination-1)*30 + i + 1
+				"count": func(i int) int {
+					return pagination*30 + i + 1
 				},
 			}).
-			Parse(fmt.Sprintf("```md\n# %s / 코드: %s / 단어 %d개 \n\n{{ range $i, $v := . }}{{ inc $i }}.[{{ $v.Key }}]({{ $v.Value }}){{ with $v.Example }}\n* 예문: {{ $v.Example }}{{ end }}\n{{ end }}```", book.Name, *book.BookID, len(vocas)))
+			Parse(fmt.Sprintf("```md\n# %s / 코드: %s / 단어 %d개 \n\n{{ range $i, $v := . }}{{ count $i }}.[{{ $v.Key }}]({{ $v.Value }}){{ with $v.Example }}\n* 예문: {{ $v.Example }}{{ end }}\n{{ end }}```", book.Name, *book.BookID, len(vocas)))
 
 		if err != nil {
 			log.Errorf("Failed parsing template : %v", err)
@@ -131,14 +125,14 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 		}
 
 		var response bytes.Buffer
-		if err := tmpl.Execute(&response, vocas); err != nil {
+		if err := tmpl.Execute(&response, vocas[pagination*30:(pagination+1)*30]); err != nil {
 			log.Errorf("Failed executing template : %v", err)
 			return
 		}
 
 		msg, _ := s.ChannelMessageSend(m.ChannelID, response.String())
 
-		if vocasCount > 30 {
+		if len(vocas) > 30 {
 			s.MessageReactionAdd(m.ChannelID, msg.ID, "◀️")
 			s.MessageReactionAdd(m.ChannelID, msg.ID, "▶️")
 			s.MessageReactionAdd(m.ChannelID, msg.ID, "❌")
@@ -147,11 +141,10 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 				ctx, cancle := context.WithTimeout(context.Background(), 5*time.Minute)
 
 				reaction := lib.WaitForReaction(ctx, s, func(r *discordgo.MessageReactionAdd) bool {
-					return r.UserID == m.Author.ID && msg.ID == r.MessageID && r.Emoji.Name == "◀️" || r.Emoji.Name == "▶️" || r.Emoji.Name == "❌"
+					return r.UserID == m.Author.ID && msg.ID == r.MessageID && (r.Emoji.Name == "◀️" || r.Emoji.Name == "▶️" || r.Emoji.Name == "❌")
 				})
 
 				cancle()
-				fmt.Println(reaction.Emoji.Name)
 
 				if reaction == nil || reaction.Emoji.Name == "❌" {
 					break
@@ -163,27 +156,29 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 					}
 
 					pagination--
-					vocas, _ = entity.QueryVocas().Order(ent.Asc("created_at")).Offset((pagination - 1) * 30).Limit(pagination * 30).All(context.Background())
 				} else if reaction.Emoji.Name == "▶️" {
-					if pagination*30 >= vocasCount {
+					if pagination*30 >= len(vocas) {
 						continue
 					}
 
 					pagination++
-					vocas, _ = entity.QueryVocas().Order(ent.Asc("created_at")).Offset((pagination - 1) * 30).Limit(pagination * 30).All(context.Background())
 				}
 
-				// Already Check
 				response = bytes.Buffer{}
 
-				_ = tmpl.Execute(&response, vocas)
+				if len(vocas) > (pagination+1)*30 {
+					_ = tmpl.Execute(&response, vocas[pagination*30:(pagination+1)*30])
+				} else {
+					_ = tmpl.Execute(&response, vocas[pagination*30:])
+				}
+
 				s.ChannelMessageEdit(m.ChannelID, msg.ID, response.String())
 			}
 
 			lib.MessageBotReactionRemove(s, msg, "◀️", "▶️", "❌")
 		}
 	} else if len(args) > 1 && args[1] == "card" {
-		pagination-- // 카드가 존재하기 때문에 -1 로 시작
+		pagination--
 
 		msg, _ := s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
 			Title:       "📚 " + book.Name,
@@ -210,6 +205,10 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 					Value: "◀️▶️ 이모지를 이용하여 단어장을 넘겨보세요.",
 				},
 			},
+			Footer: &discordgo.MessageEmbedFooter{
+				IconURL: book.Edges.Owner.Thumbnail,
+				Text:    book.Edges.Owner.Username,
+			},
 		})
 
 		s.MessageReactionAdd(m.ChannelID, msg.ID, "◀️")
@@ -220,11 +219,10 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 			ctx, cancle := context.WithTimeout(context.Background(), 3*time.Minute)
 
 			reaction := lib.WaitForReaction(ctx, s, func(r *discordgo.MessageReactionAdd) bool {
-				return r.UserID == m.Author.ID && msg.ID == r.MessageID && r.Emoji.Name == "◀️" || r.Emoji.Name == "▶️" || r.Emoji.Name == "❌"
+				return r.UserID == m.Author.ID && msg.ID == r.MessageID && (r.Emoji.Name == "◀️" || r.Emoji.Name == "▶️" || r.Emoji.Name == "❌")
 			})
 
 			cancle()
-
 			if reaction == nil || reaction.Emoji.Name == "❌" {
 				break
 			}
@@ -237,23 +235,15 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 				}
 
 				pagination--
-
-				if pagination%30 == 0 {
-					vocas, _ = entity.QueryVocas().Order(ent.Asc("created_at")).Offset((pagination - 1) * 30).Limit(pagination * 30).All(context.Background())
-				}
 			} else if reaction.Emoji.Name == "▶️" {
-				if pagination >= vocasCount-1 {
+				if pagination >= len(vocas)-1 {
 					continue
-				}
-
-				if pagination%30 == 0 {
-					vocas, _ = entity.QueryVocas().Order(ent.Asc("created_at")).Offset((pagination - 1) * 30).Limit(pagination * 30).All(context.Background())
 				}
 
 				pagination++
 			}
 
-			voca := vocas[(pagination%30]
+			voca := vocas[pagination]
 
 			embed := discordgo.MessageEmbed{
 				Title: "📚 " + book.Name,
@@ -268,6 +258,10 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 						Value:  voca.Value,
 						Inline: true,
 					},
+				},
+				Footer: &discordgo.MessageEmbedFooter{
+					IconURL: book.Edges.Owner.Thumbnail,
+					Text:    fmt.Sprintf("%d/%d 번째 단어", pagination+1, len(vocas)),
 				},
 			}
 
