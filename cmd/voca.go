@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/facebook/ent/dialect/sql"
 	log "github.com/sirupsen/logrus"
 	"lang.pkg/ent"
 	"lang.pkg/ent/book"
@@ -34,11 +35,21 @@ func (app Voca) Init() {
 
 	router.Add(&router.CommandStruct{
 		Match:  "gets",
-		Help:   "!gets <단어장 코드> [형식 list/card]",
+		Help:   "!gets <단어장 코드>, [형식 list/card]",
 		Info:   "모든 단어를 리스트 또는 카드로 가져오는 명령어 입니다.",
 		PreRun: lib.Passport(app.client),
 		Run:    app.getVocas,
 	})
+
+	router.Add(&router.CommandStruct{
+		Match:  "get",
+		Help:   "!get <단어장 코드>, [번호 숫자/random]",
+		Info:   "단어장에 특정한 단어를 가져오거나 랜덤하게 가져옵니다.",
+		PreRun: lib.Passport(app.client),
+		Run:    app.getVoca,
+	})
+
+	// TODO: 나중에 book 없을 때도 주의사황 출력해주기
 }
 
 func (app *Voca) addVoca(s *discordgo.Session, m *discordgo.MessageCreate, cmd *router.CommandStruct) {
@@ -94,6 +105,11 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 	book, err := entity.First(context.Background())
 	if err != nil {
 		log.Errorf("Failed querying book : %v", err)
+		return
+	}
+
+	if book.Public == false {
+		s.ChannelMessageSend(m.ChannelID, "📀 해당 단어장은 비공개로 설정되어 있어서 접근하실 수 없어요")
 		return
 	}
 
@@ -277,4 +293,101 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 
 		lib.MessageBotReactionRemove(s, msg, "◀️", "▶️", "❌")
 	}
+}
+
+func (app *Voca) getVoca(s *discordgo.Session, m *discordgo.MessageCreate, cmd *router.CommandStruct) {
+	args := lib.ParseContent(m.Content, cmd.Match)
+	if len(args) < 1 {
+		lib.CommandError(s, m, cmd)
+		return
+	}
+
+	book, err := app.client.Book.Query().
+		Where(book.BookIDEQ((args[0]))).
+		WithOwner().
+		First(context.Background())
+
+	if err != nil {
+		log.Errorf("Failed querying book : %v", err)
+	}
+
+	if book.Public == false {
+		s.ChannelMessageSend(m.ChannelID, "📀 해당 단어장은 비공개로 설정되어 있어서 접근하실 수 없어요")
+		return
+	}
+
+	if len(args) == 1 || args[1] == "random" {
+		voca, err := book.QueryVocas().Order(func(s *sql.Selector, check func(string) bool) {
+			s.OrderBy("RAND()")
+		}).First(context.Background())
+
+		if err != nil {
+			log.Errorf("Failed querying voca : %v", err)
+		}
+
+		s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
+			Title: "📚 " + book.Name,
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:   "**단어**",
+					Value:  voca.Key,
+					Inline: true,
+				},
+				{
+					Name:   "**뜻**",
+					Value:  voca.Value,
+					Inline: true,
+				},
+			},
+			Footer: &discordgo.MessageEmbedFooter{
+				IconURL: book.Edges.Owner.Thumbnail,
+				Text:    "랜덤으로 가져 온 단어입니다",
+			},
+		})
+	} else if len(args) > 1 {
+		idx, err := strconv.Atoi(args[1])
+		if err != nil {
+			lib.CommandError(s, m, cmd)
+			return
+		}
+
+		idx--
+
+		voca, err := book.QueryVocas().
+			Order(ent.Asc("created_at")).
+			Offset(idx).
+			First(context.Background())
+
+		if err != nil {
+			log.Errorf("Failed querying voca : %v", err)
+			return
+		}
+
+		count, err := book.QueryVocas().Count(context.Background())
+		if err != nil {
+			log.Errorf("Failed querying voca : %v", err)
+			return
+		}
+
+		s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
+			Title: "📚 " + book.Name,
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:   "**단어**",
+					Value:  voca.Key,
+					Inline: true,
+				},
+				{
+					Name:   "**뜻**",
+					Value:  voca.Value,
+					Inline: true,
+				},
+			},
+			Footer: &discordgo.MessageEmbedFooter{
+				IconURL: book.Edges.Owner.Thumbnail,
+				Text:    fmt.Sprintf("%d/%d 번째 단어", idx+1, count),
+			},
+		})
+	}
+
 }
