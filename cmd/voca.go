@@ -234,6 +234,7 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 				IconURL: book.Edges.Owner.Thumbnail,
 				Text:    book.Edges.Owner.Username,
 			},
+			Timestamp: book.CreatedAt.Format(time.RFC3339),
 		})
 
 		s.MessageReactionAdd(m.ChannelID, msg.ID, "◀️")
@@ -333,6 +334,7 @@ func (app *Voca) getVoca(s *discordgo.Session, m *discordgo.MessageCreate, cmd *
 
 		if err != nil {
 			log.Errorf("Failed querying voca : %v", err)
+			return
 		}
 
 		s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
