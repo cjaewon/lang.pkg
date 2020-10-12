@@ -49,6 +49,14 @@ func (app Voca) Init() {
 		Run:    app.getVoca,
 	})
 
+	router.Add(&router.CommandStruct{
+		Match:  "remove",
+		Help:   "!remove <단어장 코드>, <해당 단어 번호>",
+		Info:   "단어장에서 번호에 해당하는 단어를 제거합니다.",
+		PreRun: lib.Passport(app.client),
+		Run:    app.removeVoca,
+	})
+
 	// TODO: 나중에 book 없을 때도 주의사황 출력해주기
 }
 
@@ -107,7 +115,6 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 		log.Errorf("Failed querying book : %v", err)
 		return
 	}
-
 	if book.Public == false {
 		s.ChannelMessageSend(m.ChannelID, "📀 해당 단어장은 비공개로 설정되어 있어서 접근하실 수 없어요")
 		return
@@ -140,10 +147,12 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 			return
 		}
 
+		// TODO: err check
 		var response bytes.Buffer
-		if err := tmpl.Execute(&response, vocas[pagination*30:(pagination+1)*30]); err != nil {
-			log.Errorf("Failed executing template : %v", err)
-			return
+		if len(vocas) > (pagination+1)*30 {
+			_ = tmpl.Execute(&response, vocas[pagination*30:(pagination+1)*30])
+		} else {
+			_ = tmpl.Execute(&response, vocas[pagination*30:])
 		}
 
 		msg, _ := s.ChannelMessageSend(m.ChannelID, response.String())
@@ -309,6 +318,7 @@ func (app *Voca) getVoca(s *discordgo.Session, m *discordgo.MessageCreate, cmd *
 
 	if err != nil {
 		log.Errorf("Failed querying book : %v", err)
+		return
 	}
 
 	if book.Public == false {
@@ -389,5 +399,54 @@ func (app *Voca) getVoca(s *discordgo.Session, m *discordgo.MessageCreate, cmd *
 			},
 		})
 	}
+}
 
+func (app *Voca) removeVoca(s *discordgo.Session, m *discordgo.MessageCreate, cmd *router.CommandStruct) {
+	args := lib.ParseContent(m.Content, cmd.Match)
+	if len(args) < 2 {
+		lib.CommandError(s, m, cmd)
+		return
+	}
+
+	book, err := app.client.Book.Query().
+		Where(book.BookIDEQ((args[0]))).
+		WithOwner().
+		First(context.Background())
+
+	if err != nil {
+		log.Errorf("Failed querying book : %v", err)
+		return
+	}
+	if book.Edges.Owner.UserID != m.Author.ID {
+		s.ChannelMessageSend(m.ChannelID, "💥 자신의 단어장만 편집 가능해요. 다른 사람의 단어장을 사용하고 싶으시면 `fork` 기능을 이용해주세요")
+		return
+	}
+
+	idx, err := strconv.Atoi(args[1])
+	if err != nil {
+		lib.CommandError(s, m, cmd)
+		return
+	}
+
+	voca, err := book.QueryVocas().
+		Order(ent.Asc("created_at")).
+		Offset(idx).
+		First(context.Background())
+
+	if voca == nil {
+		s.ChannelMessageSend(m.ChannelID, "💥 해당 단어를 찾을 수 없어요")
+		return
+	}
+
+	if err != nil {
+		log.Errorf("Failed querying voca : %v", err)
+		return
+	}
+
+	if err := book.Update().RemoveVocas(voca).Exec(context.Background()); err != nil {
+		log.Errorf("Failed querying voca : %v", err)
+		return
+	}
+
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🪦 `%s` 를 단어장에서 삭제했어요.", voca.Key))
 }
