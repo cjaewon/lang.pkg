@@ -212,7 +212,7 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 			Fields: []*discordgo.MessageEmbedField{
 				{
 					Name:   "공개 여부",
-					Value:  map[bool]string{true: "🇴", false: "🇽"}[book.Public],
+					Value:  map[bool]string{true: "🇴 공개 중", false: "🇽 비공개 중"}[book.Public],
 					Inline: true,
 				},
 				{

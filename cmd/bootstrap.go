@@ -6,6 +6,7 @@ import "lang.pkg/ent"
 
 // Bootstrap : Bootstrap All Commands
 func Bootstrap(client *ent.Client) {
+	Help{client: client}.Init()
 	User{client: client}.Init()
 	Book{client: client}.Init()
 	Voca{client: client}.Init()

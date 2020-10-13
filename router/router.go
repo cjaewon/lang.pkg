@@ -17,17 +17,18 @@ type CommandStruct struct {
 	Run    func(s *discordgo.Session, m *discordgo.MessageCreate, cmd *CommandStruct)
 }
 
-var commands map[string]*CommandStruct = map[string]*CommandStruct{}
+// Commands : Command List
+var Commands map[string]*CommandStruct = map[string]*CommandStruct{}
 
 // Run : Run Command
 func Run(s *discordgo.Session, m *discordgo.MessageCreate) {
 	match := strings.Split(strings.TrimPrefix(m.Content, "!"), " ")[0]
 
-	if _, ok := commands[match]; !ok {
+	if _, ok := Commands[match]; !ok {
 		return
 	}
 
-	cmd := commands[match]
+	cmd := Commands[match]
 
 	if cmd.PreRun != nil {
 		if cmd.PreRun(s, m) {
@@ -42,9 +43,9 @@ func Run(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 // Add : Add Command
 func Add(cmd *CommandStruct) {
-	if _, ok := commands[cmd.Match]; ok {
+	if _, ok := Commands[cmd.Match]; ok {
 		log.WithField("match", cmd.Match).Error("Exits command match")
 	}
 
-	commands[cmd.Match] = cmd
+	Commands[cmd.Match] = cmd
 }
