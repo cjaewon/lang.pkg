@@ -50,6 +50,14 @@ func (app Voca) Init() {
 	})
 
 	router.Add(&router.CommandStruct{
+		Match:  "update",
+		Help:   "!update <단어장 코드>, <해당 단어 번호>, <단어>, <뜻>, [예문]",
+		Info:   "단어장에서 번호에 해당하는 단어를 수정합니다.",
+		PreRun: lib.Passport(app.client),
+		Run:    app.updateVoca,
+	})
+
+	router.Add(&router.CommandStruct{
 		Match:  "remove",
 		Help:   "!remove <단어장 코드>, <해당 단어 번호>",
 		Info:   "단어장에서 번호에 해당하는 단어를 제거합니다.",
@@ -115,7 +123,7 @@ func (app *Voca) getVocas(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 		log.Errorf("Failed querying book : %v", err)
 		return
 	}
-	if book.Public == false {
+	if book.Edges.Owner.UserID != m.Author.ID && book.Public == false {
 		s.ChannelMessageSend(m.ChannelID, "📀 해당 단어장은 비공개로 설정되어 있어서 접근하실 수 없어요")
 		return
 	}
@@ -322,7 +330,7 @@ func (app *Voca) getVoca(s *discordgo.Session, m *discordgo.MessageCreate, cmd *
 		return
 	}
 
-	if book.Public == false {
+	if book.Edges.Owner.UserID != m.Author.ID && book.Public == false {
 		s.ChannelMessageSend(m.ChannelID, "📀 해당 단어장은 비공개로 설정되어 있어서 접근하실 수 없어요")
 		return
 	}
@@ -337,7 +345,7 @@ func (app *Voca) getVoca(s *discordgo.Session, m *discordgo.MessageCreate, cmd *
 			return
 		}
 
-		s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
+		embed := discordgo.MessageEmbed{
 			Title: "📚 " + book.Name,
 			Fields: []*discordgo.MessageEmbedField{
 				{
@@ -355,7 +363,17 @@ func (app *Voca) getVoca(s *discordgo.Session, m *discordgo.MessageCreate, cmd *
 				IconURL: book.Edges.Owner.Thumbnail,
 				Text:    "랜덤으로 가져 온 단어입니다",
 			},
-		})
+		}
+
+		if voca.Example != nil {
+			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+				Name:  "**예문**",
+				Value: strings.Replace(*voca.Example, voca.Key, "**"+voca.Key+"**", 1),
+			})
+		}
+
+		s.ChannelMessageSendEmbed(m.ChannelID, &embed)
+
 	} else if len(args) > 1 {
 		idx, err := strconv.Atoi(args[1])
 		if err != nil {
@@ -381,7 +399,7 @@ func (app *Voca) getVoca(s *discordgo.Session, m *discordgo.MessageCreate, cmd *
 			return
 		}
 
-		s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
+		embed := discordgo.MessageEmbed{
 			Title: "📚 " + book.Name,
 			Fields: []*discordgo.MessageEmbedField{
 				{
@@ -399,8 +417,68 @@ func (app *Voca) getVoca(s *discordgo.Session, m *discordgo.MessageCreate, cmd *
 				IconURL: book.Edges.Owner.Thumbnail,
 				Text:    fmt.Sprintf("%d/%d 번째 단어", idx+1, count),
 			},
-		})
+		}
+
+		if voca.Example != nil {
+			embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+				Name:  "**예문**",
+				Value: strings.Replace(*voca.Example, voca.Key, "**"+voca.Key+"**", 1),
+			})
+		}
+
+		s.ChannelMessageSendEmbed(m.ChannelID, &embed)
 	}
+}
+
+func (app *Voca) updateVoca(s *discordgo.Session, m *discordgo.MessageCreate, cmd *router.CommandStruct) {
+	args := lib.ParseContent(m.Content, cmd.Match)
+	if len(args) < 4 {
+		lib.CommandError(s, m, cmd)
+		return
+	}
+
+	book, err := app.client.Book.
+		Query().
+		Where(book.BookIDEQ(args[0])).
+		WithOwner().
+		First(context.Background())
+
+	if err != nil {
+		log.Errorf("Failed querying book : %v", err)
+		return
+	}
+
+	if book.Edges.Owner.UserID != m.Author.ID {
+		s.ChannelMessageSend(m.ChannelID, "💥 자신의 단어장만 편집 가능해요. 다른 사람의 단어장을 사용하고 싶으시면 `fork` 기능을 이용해주세요")
+		return
+	}
+
+	idx, err := strconv.Atoi(args[1])
+	idx--
+
+	if err != nil {
+		lib.CommandError(s, m, cmd)
+		return
+	}
+
+	voca, err := book.QueryVocas().
+		Order(ent.Asc("created_at")).
+		Offset(idx).
+		First(context.Background())
+
+	entity := voca.Update().SetKey(args[2]).SetValue(args[3])
+
+	if len(args) > 4 {
+		entity.SetExample(args[4])
+	}
+
+	_, err = entity.Save(context.Background())
+	if err != nil {
+		log.Errorf("Failed querying voca : %v", err)
+		return
+	}
+
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("> ✅ %s 를 **%s** 로 수정했어요", voca.Key, args[2]))
 }
 
 func (app *Voca) removeVoca(s *discordgo.Session, m *discordgo.MessageCreate, cmd *router.CommandStruct) {

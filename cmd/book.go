@@ -136,7 +136,7 @@ func (app *Book) infoBook(s *discordgo.Session, m *discordgo.MessageCreate, cmd 
 		return
 	}
 
-	if book.Public == false {
+	if book.Edges.Owner.UserID != m.Author.ID && book.Public == false {
 		s.ChannelMessageSend(m.ChannelID, "📀 해당 단어장은 비공개로 설정되어 있어서 접근하실 수 없어요")
 		return
 	}
